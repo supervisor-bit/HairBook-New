@@ -10,13 +10,6 @@ export async function GET(
 
     const products = await prisma.homeProduct.findMany({
       where: { clientId: id },
-      include: {
-        material: {
-          include: {
-            group: true,
-          },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     })
 
@@ -74,27 +67,33 @@ export async function POST(
 
     // Create all products and update stock in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      const createdProducts = []
+      const createdProducts: any[] = []
+      
+      // Store totalPrice in first item for display purposes
+      const parsedTotalPrice = totalPrice ? parseFloat(totalPrice) : null
 
       for (let i = 0; i < products.length; i++) {
         const item = products[i]
         
-        // Create home product
+        // Get material info to store in HomeProduct
+        const material = await tx.material.findUnique({
+          where: { id: item.materialId },
+        })
+        
+        if (!material) continue
+        
+        // Create home product with stored data (not relation)
+        // Store totalPrice and note only on FIRST created product (not i===0 because order may vary)
         const product = await tx.homeProduct.create({
           data: {
             clientId: id,
-            materialId: item.materialId,
+            name: material.name,
             quantity: parseInt(item.quantity),
+            packageSize: material.packageSize,
+            originalUnit: material.unit,
+            note: createdProducts.length === 0 ? (note || null) : null, // first created product
             purchaseId,
-            totalPrice: i === 0 ? (totalPrice && totalPrice !== '' ? parseFloat(totalPrice) : null) : null, // only first item has totalPrice
-            note: i === 0 ? (note || null) : null, // only first item has note
-          },
-          include: {
-            material: {
-              include: {
-                group: true,
-              },
-            },
+            totalPrice: createdProducts.length === 0 ? parsedTotalPrice : null, // first created product
           },
         })
 
@@ -114,9 +113,11 @@ export async function POST(
         await tx.materialMovement.create({
           data: {
             materialId: item.materialId,
-            type: 'out',
+            type: 'SALE',
             quantity: -item.quantity,
             note: `Prodáno klientovi - ${item.quantity} ks`,
+            clientId: id,
+            totalPrice: i === 0 && totalPrice ? parseFloat(totalPrice) : null,
           },
         })
       }

@@ -28,13 +28,6 @@ export async function GET(
         },
         homeProducts: {
           orderBy: { createdAt: 'desc' },
-          include: {
-            material: {
-              include: {
-                group: true,
-              },
-            },
-          },
         },
         notes: {
           orderBy: { createdAt: 'desc' },

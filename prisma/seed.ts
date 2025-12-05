@@ -52,13 +52,14 @@ async function main() {
   // Create materials
   await prisma.material.createMany({
     data: [
-      // L'Oréal Professionnel Barvy
+      // L'Oréal Professionnel Barvy (pouze pro salon)
       {
         name: 'L\'Oréal Professionnel INOA 6.0',
         groupId: groupColors.id,
         unit: 'g',
         packageSize: 60,
         stockQuantity: 12,
+        isRetailProduct: false,
       },
       {
         name: 'L\'Oréal Professionnel INOA 7.1',
@@ -66,6 +67,7 @@ async function main() {
         unit: 'g',
         packageSize: 60,
         stockQuantity: 10,
+        isRetailProduct: false,
       },
       {
         name: 'L\'Oréal Professionnel INOA 8.0',
@@ -73,6 +75,7 @@ async function main() {
         unit: 'g',
         packageSize: 60,
         stockQuantity: 8,
+        isRetailProduct: false,
       },
       {
         name: 'L\'Oréal Professionnel INOA 9.1',
@@ -80,6 +83,7 @@ async function main() {
         unit: 'g',
         packageSize: 60,
         stockQuantity: 6,
+        isRetailProduct: false,
       },
       {
         name: 'L\'Oréal Professionnel INOA Oxidant 6%',
@@ -87,6 +91,7 @@ async function main() {
         unit: 'ml',
         packageSize: 1000,
         stockQuantity: 8,
+        isRetailProduct: false,
       },
       {
         name: 'L\'Oréal Professionnel INOA Oxidant 9%',
@@ -94,14 +99,16 @@ async function main() {
         unit: 'ml',
         packageSize: 1000,
         stockQuantity: 5,
+        isRetailProduct: false,
       },
-      // L'Oréal Professionnel Šampony
+      // L'Oréal Professionnel Šampony (pro prodej klientům)
       {
         name: 'L\'Oréal Professionnel Serie Expert Vitamino Color',
         groupId: groupShampoos.id,
         unit: 'ml',
         packageSize: 500,
         stockQuantity: 15,
+        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Serie Expert Absolut Repair',
@@ -109,6 +116,7 @@ async function main() {
         unit: 'ml',
         packageSize: 500,
         stockQuantity: 12,
+        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Serie Expert Silver',
@@ -116,6 +124,7 @@ async function main() {
         unit: 'ml',
         packageSize: 500,
         stockQuantity: 8,
+        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Serie Expert Curl Expression',
@@ -123,14 +132,16 @@ async function main() {
         unit: 'ml',
         packageSize: 500,
         stockQuantity: 10,
+        isRetailProduct: true,
       },
-      // L'Oréal Professionnel Styling
+      // L'Oréal Professionnel Styling (pro prodej klientům)
       {
         name: 'L\'Oréal Professionnel Tecni.Art Fix Max',
         groupId: groupStyling.id,
         unit: 'ml',
         packageSize: 400,
         stockQuantity: 14,
+        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Tecni.Art Volume Lift',
@@ -138,6 +149,7 @@ async function main() {
         unit: 'ml',
         packageSize: 250,
         stockQuantity: 9,
+        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Tecni.Art Pli',
@@ -145,6 +157,7 @@ async function main() {
         unit: 'ml',
         packageSize: 190,
         stockQuantity: 7,
+        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Tecni.Art Wild Stylers',
@@ -152,14 +165,16 @@ async function main() {
         unit: 'ml',
         packageSize: 150,
         stockQuantity: 11,
+        isRetailProduct: true,
       },
-      // Doplňky
+      // Doplňky (pouze pro salon)
       {
         name: 'Gumičky do vlasů',
         groupId: groupStyling.id,
         unit: 'ks',
         packageSize: 1,
         stockQuantity: 100,
+        isRetailProduct: false,
       },
       {
         name: 'Sponky do vlasů',
@@ -167,6 +182,7 @@ async function main() {
         unit: 'ks',
         packageSize: 1,
         stockQuantity: 80,
+        isRetailProduct: false,
       },
     ],
   })
@@ -252,21 +268,28 @@ async function main() {
   })
   
   if (firstClient && shampooMaterial && stylingMaterial) {
+    const purchaseId = `purchase_${Date.now()}_sample1`
     await prisma.homeProduct.createMany({
       data: [
         {
           clientId: firstClient.id,
           name: shampooMaterial.name,
           quantity: 2,
-          unit: shampooMaterial.unit,
+          packageSize: shampooMaterial.packageSize,
+          originalUnit: shampooMaterial.unit,
           note: 'Pro barvené vlasy',
+          purchaseId,
+          totalPrice: 850, // Only on first item
         },
         {
           clientId: firstClient.id,
           name: stylingMaterial.name,
           quantity: 1,
-          unit: stylingMaterial.unit,
-          note: 'Silná fixace',
+          packageSize: stylingMaterial.packageSize,
+          originalUnit: stylingMaterial.unit,
+          note: null,
+          purchaseId,
+          totalPrice: null,
         },
       ],
     })

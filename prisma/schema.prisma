@@ -56,14 +56,17 @@ model ClientNote {
 
 // Home Products (for client history)
 model HomeProduct {
-  id        String   @id @default(cuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  name      String   // Product name at time of purchase
-  quantity  Float    // Quantity purchased
-  unit      String   // Unit (g, ml, ks)
-  note      String?
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name         String   // Product name at time of purchase
+  quantity     Float    // Quantity in pieces (ks)
+  packageSize  Float    // Size of one package
+  originalUnit String   // Original unit (g, ml, ks)
+  note         String?
+  purchaseId   String?  // Groups products from same purchase
+  totalPrice   Float?   // Total price for the whole purchase (only on first item)
+  createdAt    DateTime @default(now())
 }
 
 // Material Groups
@@ -85,6 +88,7 @@ model Material {
   packageSize   Float           // size of one package (100g, 500ml, 1ks)
   stockQuantity Float           @default(0) // in packages (ks)
   minStock      Float           @default(0) // minimum stock alert threshold (ks)
+  isRetailProduct Boolean       @default(false) // true = pro prodej klientům
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   movements     MaterialMovement[]
@@ -98,11 +102,12 @@ model MaterialMovement {
   id         String   @id @default(cuid())
   materialId String
   material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
-  type       String   // "USAGE" = vydej, "PURCHASE" = nakup, "DELIVERY" = dodani objednavky, "SALE" = prodej, "VISIT" = pouzito v navsteve
+  type       String   // "USAGE" = vydej pro praci, "PURCHASE" = nakup, "DELIVERY" = dodani objednavky, "SALE" = prodej klientum, "VISIT" = pouzito v navsteve
   quantity   Float    // in packages (ks)
   note       String?
+  totalPrice Float?   // celkova cena (jen pro SALE)
   visitId    String?
-  clientId   String?  // for SALE - link to client if registered
+  clientId   String?  // for SALE/USAGE - link to client if specified
   client     Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   createdAt  DateTime @default(now())
 }

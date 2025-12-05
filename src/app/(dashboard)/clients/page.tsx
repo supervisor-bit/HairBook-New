@@ -151,6 +151,7 @@ export default function ClientsPage() {
       'bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
       'bg-red-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
     ]
+    if (!name || name.length === 0) return colors[0]
     const index = name.charCodeAt(0) % colors.length
     return colors[index]
   }
@@ -315,8 +316,8 @@ export default function ClientsPage() {
               `}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full ${getAvatarColor(client.firstName)} flex items-center justify-center text-white font-semibold shadow-md`}>
-                  {client.avatar || `${client.firstName[0]}${client.lastName[0]}`}
+                <div className={`w-10 h-10 rounded-full ${getAvatarColor(client.firstName || '')} flex items-center justify-center text-white font-semibold shadow-md`}>
+                  {client.avatar || `${(client.firstName || '')[0] || ''}${(client.lastName || '')[0] || ''}`}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 truncate">
@@ -684,6 +685,7 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
       'bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
       'bg-red-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
     ]
+    if (!name || name.length === 0) return colors[0]
     const index = name.charCodeAt(0) % colors.length
     return colors[index]
   }
@@ -858,8 +860,8 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
       {/* Header */}
       <div className="glass border-b border-purple-100/50 p-6">
         <div className="flex items-center gap-4 mb-6">
-          <div className={`w-16 h-16 rounded-full ${getAvatarColor(client.firstName)} flex items-center justify-center text-white text-2xl font-semibold shadow-lg`}>
-            {client.avatar || `${client.firstName[0]}${client.lastName[0]}`}
+          <div className={`w-16 h-16 rounded-full ${getAvatarColor(client.firstName || '')} flex items-center justify-center text-white text-2xl font-semibold shadow-lg`}>
+            {client.avatar || `${(client.firstName || '')[0] || ''}${(client.lastName || '')[0] || ''}`}
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-gray-900">
@@ -1085,6 +1087,8 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                   return sortedGroups.map((products: any) => {
                     const firstProduct = products[0]
                     const totalQuantity = products.reduce((sum: number, p: any) => sum + p.quantity, 0)
+                    // Find product with totalPrice (if any)
+                    const productWithPrice = products.find((p: any) => p.totalPrice) || firstProduct
                     
                     return (
                       <div key={firstProduct.purchaseId || firstProduct.id} className="glass rounded-lg p-4 shadow-soft border border-purple-100/30 hover:shadow-glow hover:scale-[1.01] transition-all duration-200">
@@ -1098,34 +1102,36 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                                   year: 'numeric',
                                 })}
                               </div>
-                              {firstProduct.totalPrice && (
+                              {productWithPrice.totalPrice && (
                                 <span className="px-3 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-semibold">
-                                  {firstProduct.totalPrice.toLocaleString('cs-CZ')} Kč
+                                  {productWithPrice.totalPrice.toLocaleString('cs-CZ')} Kč
                                 </span>
                               )}
                             </div>
                             
                             {/* List of products */}
                             <div className="space-y-2">
-                              {products.map((product: any) => (
+                              {products.map((product: any) => {
+                                if (!product) return null
+                                const totalAmount = product.quantity * product.packageSize
+                                return (
                                 <div key={product.id} className="flex items-center gap-2">
-                                  <span className="font-medium text-gray-900">{product.material.name}</span>
+                                  <span className="font-medium text-gray-900">{product.name}</span>
                                   <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">
                                     {product.quantity} ks
-                                  </span>
-                                  <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
-                                    {product.material.group.name}
+                                    {product.originalUnit !== 'ks' && ` (${totalAmount} ${product.originalUnit})`}
                                   </span>
                                 </div>
-                              ))}
+                                )
+                              })}
                             </div>
 
-                            {firstProduct.note && (
-                              <p className="text-sm text-gray-600 mt-2">{firstProduct.note}</p>
+                            {productWithPrice.note && (
+                              <p className="text-sm text-gray-600 mt-2">{productWithPrice.note}</p>
                             )}
                           </div>
                           <button
-                            onClick={() => setShowDeleteProductConfirm(firstProduct)}
+                            onClick={() => setShowDeleteProductConfirm(productWithPrice)}
                             className="p-2 bg-white/80 text-red-600 rounded-lg hover:bg-red-50 hover:shadow-soft transition-all duration-200 ml-4"
                             title="Smazat"
                           >
@@ -1261,7 +1267,9 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                     Služby ({previewVisit.services.length})
                   </h3>
                   <div className="space-y-3">
-                    {previewVisit.services.map((vs: any) => (
+                    {previewVisit.services.map((vs: any) => {
+                      if (!vs || !vs.service) return null
+                      return (
                       <div key={vs.id} className="bg-white/60 rounded-lg p-4 border border-purple-100/50">
                         <div className="font-semibold text-gray-900 mb-3">
                           💇 {vs.service.name}
@@ -1269,20 +1277,24 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                         {vs.materials.length > 0 && (
                           <div className="ml-5 space-y-2">
                             <div className="text-sm font-medium text-gray-600 mb-2">Použité materiály:</div>
-                            {vs.materials.map((vm: any) => (
-                              <div key={vm.id} className="flex items-center justify-between text-sm bg-gray-50 px-3 py-2 rounded">
-                                <span className="text-gray-700">
-                                  • {vm.material.name}
-                                </span>
-                                <span className="text-gray-600 font-semibold">
-                                  {vm.quantity} {vm.unit}
-                                </span>
-                              </div>
-                            ))}
+                            {vs.materials.map((vm: any) => {
+                              if (!vm || !vm.material) return null
+                              return (
+                                <div key={vm.id} className="flex items-center justify-between text-sm bg-gray-50 px-3 py-2 rounded">
+                                  <span className="text-gray-700">
+                                    • {vm.material.name}
+                                  </span>
+                                  <span className="text-gray-600 font-semibold">
+                                    {vm.quantity} {vm.unit}
+                                  </span>
+                                </div>
+                              )
+                            })}
                           </div>
                         )}
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </>
               )}
@@ -1464,7 +1476,9 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                           </span>
                         )}
                       </div>
-                      <div className="text-sm text-gray-600">{material.group.name}</div>
+                      {material.group && (
+                        <div className="text-sm text-gray-600">{material.group.name}</div>
+                      )}
                       <div className="flex items-center justify-between mt-2">
                         <span className={`text-sm font-medium ${material.stockQuantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
                           Sklad: {material.stockQuantity} ks
@@ -1495,7 +1509,9 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
                               <div className="font-medium text-gray-900 text-sm">{material.name}</div>
-                              <div className="text-xs text-gray-500">{material.group.name}</div>
+                              {material.group && (
+                                <div className="text-xs text-gray-500">{material.group.name}</div>
+                              )}
                             </div>
                             <button
                               onClick={() => removeFromCart(item.materialId)}

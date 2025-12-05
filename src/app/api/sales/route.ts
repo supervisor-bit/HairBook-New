@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { items, clientId, note } = body
+    const { items, clientId, note, type = 'SALE', totalPrice } = body
 
     // Validate items
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -14,12 +14,24 @@ export async function POST(request: Request) {
       )
     }
 
-    // Process sale in transaction
-    const result = await prisma.$transaction(async (tx) => {
-      const movements = []
-      const homeProducts = []
+    // Validate type
+    if (!['SALE', 'USAGE'].includes(type)) {
+      return NextResponse.json(
+        { error: 'Invalid transaction type' },
+        { status: 400 }
+      )
+    }
 
-      for (const item of items) {
+    // Process all items in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const movements: any[] = []
+      const homeProducts: any[] = []
+      
+      // Generate unique purchaseId for grouping products
+      const purchaseId = `purchase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index]
         const { materialId, quantity } = item
 
         // Get material
@@ -48,23 +60,28 @@ export async function POST(request: Request) {
         const movement = await tx.materialMovement.create({
           data: {
             materialId,
-            type: 'SALE',
+            type,
             quantity: -quantity,
             note: note || null,
+            totalPrice: type === 'SALE' && totalPrice ? parseFloat(totalPrice) : null,
             clientId: clientId || null
           }
         })
         movements.push(movement)
 
-        // If client is registered, create HomeProduct record
-        if (clientId) {
+        // If client is registered AND it's a SALE, create HomeProduct record
+        if (clientId && type === 'SALE') {
           const homeProduct = await tx.homeProduct.create({
             data: {
               clientId,
               name: material.name,
-              quantity,
-              unit: material.unit,
-              note: note || null
+              quantity, // Quantity in pieces (ks)
+              packageSize: material.packageSize,
+              originalUnit: material.unit,
+              note: homeProducts.length === 0 ? (note || null) : null, // Only first created product
+              purchaseId,
+              // Only store totalPrice on the first created product
+              totalPrice: homeProducts.length === 0 && totalPrice ? parseFloat(totalPrice) : null
             }
           })
           homeProducts.push(homeProduct)
@@ -91,7 +108,9 @@ export async function GET(request: Request) {
     const clientId = searchParams.get('clientId')
 
     const where: any = {
-      type: 'SALE'
+      type: {
+        in: ['SALE', 'USAGE']
+      }
     }
 
     if (clientId) {
