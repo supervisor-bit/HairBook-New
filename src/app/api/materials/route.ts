@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, groupId, unit, packageSize, stockQuantity, isRetailProduct } = await request.json()
+    const { name, groupId, unit, packageSize, stockQuantity, minStock, isRetailProduct } = await request.json()
     
     const material = await prisma.material.create({
       data: {
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
         unit,
         packageSize: parseFloat(packageSize),
         stockQuantity: parseFloat(stockQuantity) || 0,
+        minStock: parseFloat(minStock) || 0,
         isRetailProduct: isRetailProduct || false,
       },
       include: {

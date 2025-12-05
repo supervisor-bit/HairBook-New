@@ -14,6 +14,7 @@ interface Material {
   unit: string
   packageSize: number
   stockQuantity: number
+  minStock: number
   groupId: string
   isRetailProduct: boolean
   group: { name: string }
@@ -47,6 +48,7 @@ export default function MaterialsPage() {
     groupId: string
     unit: string
     packageSize: string
+    minStock: string
     isRetailProduct: boolean
   } | null>(null)
   const [newGroup, setNewGroup] = useState({ name: '' })
@@ -58,6 +60,7 @@ export default function MaterialsPage() {
     unit: 'g',
     packageSize: '',
     stockQuantity: '0',
+    minStock: '0',
     isRetailProduct: false,
   })
   const [newMovement, setNewMovement] = useState({
@@ -172,6 +175,7 @@ export default function MaterialsPage() {
         unit: 'g',
         packageSize: '',
         stockQuantity: '0',
+        minStock: '0',
         isRetailProduct: false,
       })
       setShowNewMaterialForm(false)
@@ -191,6 +195,7 @@ export default function MaterialsPage() {
         groupId: editMaterial.groupId,
         unit: editMaterial.unit,
         packageSize: editMaterial.packageSize,
+        minStock: editMaterial.minStock,
         isRetailProduct: editMaterial.isRetailProduct,
       }),
     })
@@ -336,8 +341,15 @@ export default function MaterialsPage() {
               `}
             >
               <div className="flex items-center justify-between mb-1">
-                <div className="font-medium text-gray-900 truncate">
-                  {material.name}
+                <div className="flex items-center gap-2">
+                  <div className="font-medium text-gray-900 truncate">
+                    {material.name}
+                  </div>
+                  {material.minStock > 0 && material.stockQuantity <= material.minStock && (
+                    <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full">
+                      ⚠️ Nízká zásoba
+                    </span>
+                  )}
                 </div>
                 <span className={`text-sm font-semibold ${
                   material.stockQuantity > 0 ? 'text-green-600' : 'text-red-600'
@@ -376,6 +388,7 @@ export default function MaterialsPage() {
                 groupId: selectedMaterial.groupId,
                 unit: selectedMaterial.unit,
                 packageSize: selectedMaterial.packageSize.toString(),
+                minStock: selectedMaterial.minStock.toString(),
                 isRetailProduct: selectedMaterial.isRetailProduct,
               })
               setShowEditMaterialForm(true)
@@ -558,6 +571,14 @@ export default function MaterialsPage() {
                 className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                 required
               />
+              <input
+                type="number"
+                step="0.1"
+                value={newMaterial.minStock}
+                onChange={(e) => setNewMaterial({ ...newMaterial, minStock: e.target.value })}
+                placeholder="Minimální zásoba (ks) - volitelné"
+                className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+              />
               <label className="flex items-center gap-3 cursor-pointer p-4 bg-white/40 rounded-lg border border-purple-200 hover:bg-white/60 transition-all duration-200">
                 <input
                   type="checkbox"
@@ -644,6 +665,14 @@ export default function MaterialsPage() {
                   nelze upravit
                 </div>
               </div>
+              <input
+                type="number"
+                step="0.1"
+                value={editMaterial.minStock}
+                onChange={(e) => setEditMaterial({ ...editMaterial, minStock: e.target.value })}
+                placeholder="Minimální zásoba (ks) - volitelné"
+                className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+              />
               <label className="flex items-center gap-3 cursor-pointer p-4 bg-white/40 rounded-lg border border-purple-200 hover:bg-white/60 transition-all duration-200">
                 <input
                   type="checkbox"

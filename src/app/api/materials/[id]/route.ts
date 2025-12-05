@@ -62,7 +62,7 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const { name, groupId, unit, packageSize, isRetailProduct } = await request.json()
+    const { name, groupId, unit, packageSize, minStock, isRetailProduct } = await request.json()
     
     const material = await prisma.material.update({
       where: { id },
@@ -70,7 +70,8 @@ export async function PATCH(
         name,
         groupId,
         unit,
-        packageSize,
+        packageSize: parseFloat(packageSize),
+        minStock: parseFloat(minStock) || 0,
         isRetailProduct,
       },
       include: {

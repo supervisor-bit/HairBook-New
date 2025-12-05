@@ -85,6 +85,7 @@ model Material {
   unit          String          // g, ml, ks
   packageSize   Float           // size of one package (100g, 500ml, 1ks)
   stockQuantity Float           @default(0) // in packages (ks)
+  minStock      Float           @default(0) // minimum stock alert threshold (ks)
   isRetailProduct Boolean       @default(false) // true = produkt pro domácí použití (maloobchod)
   retailPrice   Float?          // prodejní cena za kus (pro retail produkty)
   createdAt     DateTime        @default(now())
