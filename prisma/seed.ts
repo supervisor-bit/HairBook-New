@@ -102,7 +102,6 @@ async function main() {
         unit: 'ml',
         packageSize: 500,
         stockQuantity: 15,
-        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Serie Expert Absolut Repair',
@@ -110,7 +109,6 @@ async function main() {
         unit: 'ml',
         packageSize: 500,
         stockQuantity: 12,
-        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Serie Expert Silver',
@@ -118,7 +116,6 @@ async function main() {
         unit: 'ml',
         packageSize: 500,
         stockQuantity: 8,
-        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Serie Expert Curl Expression',
@@ -134,7 +131,6 @@ async function main() {
         unit: 'ml',
         packageSize: 400,
         stockQuantity: 14,
-        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Tecni.Art Volume Lift',
@@ -142,7 +138,6 @@ async function main() {
         unit: 'ml',
         packageSize: 250,
         stockQuantity: 9,
-        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Tecni.Art Pli',
@@ -261,14 +256,16 @@ async function main() {
       data: [
         {
           clientId: firstClient.id,
-          materialId: shampooMaterial.id,
+          name: shampooMaterial.name,
           quantity: 2,
+          unit: shampooMaterial.unit,
           note: 'Pro barvené vlasy',
         },
         {
           clientId: firstClient.id,
-          materialId: stylingMaterial.id,
+          name: stylingMaterial.name,
           quantity: 1,
+          unit: stylingMaterial.unit,
           note: 'Silná fixace',
         },
       ],

@@ -30,18 +30,19 @@ model ClientGroup {
 
 // Clients
 model Client {
-  id          String        @id @default(cuid())
+  id          String              @id @default(cuid())
   firstName   String
   lastName    String
   phone       String
-  avatar      String?       // URL or initials
+  avatar      String?             // URL or initials
   groupId     String?
-  group       ClientGroup?  @relation(fields: [groupId], references: [id])
+  group       ClientGroup?        @relation(fields: [groupId], references: [id])
   visits      Visit[]
   homeProducts HomeProduct[]
   notes       ClientNote[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  sales       MaterialMovement[]  // Prodeje produktů
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 }
 
 // Client Notes
@@ -55,16 +56,14 @@ model ClientNote {
 
 // Home Products (for client history)
 model HomeProduct {
-  id         String   @id @default(cuid())
-  clientId   String
-  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  materialId String
-  material   Material @relation(fields: [materialId], references: [id])
-  quantity   Int      // always in pieces (ks)
-  purchaseId String?  // group products from same purchase
-  totalPrice Float?   // total price for this purchase (only set on first item in group)
-  note       String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String   // Product name at time of purchase
+  quantity  Float    // Quantity purchased
+  unit      String   // Unit (g, ml, ks)
+  note      String?
+  createdAt DateTime @default(now())
 }
 
 // Material Groups
@@ -86,14 +85,11 @@ model Material {
   packageSize   Float           // size of one package (100g, 500ml, 1ks)
   stockQuantity Float           @default(0) // in packages (ks)
   minStock      Float           @default(0) // minimum stock alert threshold (ks)
-  isRetailProduct Boolean       @default(false) // true = produkt pro domácí použití (maloobchod)
-  retailPrice   Float?          // prodejní cena za kus (pro retail produkty)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   movements     MaterialMovement[]
   visitMaterials VisitMaterial[]
   visitProducts  VisitProduct[]
-  homeProducts   HomeProduct[]
   orderItems    OrderItem[]
 }
 
@@ -102,10 +98,12 @@ model MaterialMovement {
   id         String   @id @default(cuid())
   materialId String
   material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
-  type       String   // "in" = prijem, "out" = vydej, "visit" = pouzito v navsteve
+  type       String   // "USAGE" = vydej, "PURCHASE" = nakup, "DELIVERY" = dodani objednavky, "SALE" = prodej, "VISIT" = pouzito v navsteve
   quantity   Float    // in packages (ks)
   note       String?
   visitId    String?
+  clientId   String?  // for SALE - link to client if registered
+  client     Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   createdAt  DateTime @default(now())
 }
 
