@@ -20,6 +20,7 @@ interface Material {
   unit: string
   packageSize: number
   stockQuantity: number
+  minStock: number
   group: {
     name: string
   }
@@ -584,8 +585,17 @@ export default function NewVisitPage() {
                       }}
                       className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-purple-50 rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
                     >
-                      <div className="font-medium text-gray-900">{material.name}</div>
-                      <div className="text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        {material.minStock > 0 && material.stockQuantity <= material.minStock && (
+                          <span className="text-base">⚠️</span>
+                        )}
+                        <div className="font-medium text-gray-900">{material.name}</div>
+                      </div>
+                      <div className={`text-sm ${
+                        material.minStock > 0 && material.stockQuantity <= material.minStock
+                          ? 'text-red-600 font-medium'
+                          : 'text-gray-500'
+                      }`}>
                         Skladem: {material.stockQuantity} ks (= {material.stockQuantity * material.packageSize} {material.unit})
                       </div>
                     </button>
@@ -616,8 +626,17 @@ export default function NewVisitPage() {
                           />
                           
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-gray-900">{material.name}</div>
-                            <div className="text-sm text-gray-500">
+                            <div className="flex items-center gap-2">
+                              {material.minStock > 0 && material.stockQuantity <= material.minStock && (
+                                <span className="text-base">⚠️</span>
+                              )}
+                              <div className="font-medium text-gray-900">{material.name}</div>
+                            </div>
+                            <div className={`text-sm ${
+                              material.minStock > 0 && material.stockQuantity <= material.minStock
+                                ? 'text-red-600 font-medium'
+                                : 'text-gray-500'
+                            }`}>
                               Skladem: {material.stockQuantity} ks (= {material.stockQuantity * material.packageSize} {material.unit})
                             </div>
                             
@@ -663,8 +682,17 @@ export default function NewVisitPage() {
               ) : selectedMaterial ? (
                 <div className="space-y-4">
                   <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <div className="font-medium text-gray-900">{selectedMaterial.name}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="flex items-center gap-2">
+                      {selectedMaterial.minStock > 0 && selectedMaterial.stockQuantity <= selectedMaterial.minStock && (
+                        <span className="text-base">⚠️</span>
+                      )}
+                      <div className="font-medium text-gray-900">{selectedMaterial.name}</div>
+                    </div>
+                    <div className={`text-sm ${
+                      selectedMaterial.minStock > 0 && selectedMaterial.stockQuantity <= selectedMaterial.minStock
+                        ? 'text-red-600 font-medium'
+                        : 'text-gray-500'
+                    }`}>
                       Skladem: {selectedMaterial.stockQuantity} {selectedMaterial.unit}
                     </div>
                   </div>

@@ -94,6 +94,7 @@ model Material {
   visitMaterials VisitMaterial[]
   visitProducts  VisitProduct[]
   homeProducts   HomeProduct[]
+  orderItems    OrderItem[]
 }
 
 // Material Movements (history)
@@ -177,5 +178,30 @@ model VisitProduct {
   material   Material @relation(fields: [materialId], references: [id])
   quantity   Int      // always in pieces (ks)
   price      Float?   // optional price per piece
+  createdAt  DateTime @default(now())
+}
+
+// Orders (for ordering materials from suppliers)
+model Order {
+  id          String      @id @default(cuid())
+  status      String      @default("pending") // "pending" = čeká, "ordered" = objednáno, "delivered" = doručeno
+  totalPrice  Float?
+  note        String?
+  orderedAt   DateTime?   // when order was actually placed
+  deliveredAt DateTime?   // when order was delivered
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  items       OrderItem[]
+}
+
+// Order Items
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id])
+  quantity   Int      // number of packages (ks)
+  price      Float?   // price per package
   createdAt  DateTime @default(now())
 }

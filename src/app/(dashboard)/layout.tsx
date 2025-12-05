@@ -7,6 +7,7 @@ const menuItems = [
   { icon: '🏠', label: 'Dashboard', href: '/dashboard' },
   { icon: '👥', label: 'Klienti', href: '/clients' },
   { icon: '📦', label: 'Produkty', href: '/materials' },
+  { icon: '📋', label: 'Objednávky', href: '/orders' },
   { icon: '⚙️', label: 'Nastavení', href: '/settings' },
 ]
 

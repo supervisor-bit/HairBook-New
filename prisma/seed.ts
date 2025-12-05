@@ -277,6 +277,79 @@ async function main() {
   }
 
   console.log('\n🎉 Database seeded successfully!')
+  // Create sample orders
+  const allMaterials = await prisma.material.findMany()
+  
+  // Create a pending order with low stock items
+  const lowStockMaterials = allMaterials.filter(m => m.stockQuantity < 10)
+  if (lowStockMaterials.length > 0) {
+    await prisma.order.create({
+      data: {
+        status: 'pending',
+        note: 'Objednávka pro doplnění zásoby',
+        totalPrice: 2500,
+        items: {
+          create: lowStockMaterials.slice(0, 3).map((material) => ({
+            materialId: material.id,
+            quantity: 5,
+            price: material.unit === 'g' ? 150 : material.unit === 'ml' ? 200 : 100,
+          })),
+        },
+      },
+    })
+  }
+
+  // Create an ordered order
+  await prisma.order.create({
+    data: {
+      status: 'ordered',
+      note: 'Dodavatel: Beauty Supply CZ',
+      totalPrice: 3800,
+      orderedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+      items: {
+        create: [
+          {
+            materialId: allMaterials[0].id,
+            quantity: 10,
+            price: 180,
+          },
+          {
+            materialId: allMaterials[1].id,
+            quantity: 8,
+            price: 200,
+          },
+        ],
+      },
+    },
+  })
+
+  // Create a delivered order
+  await prisma.order.create({
+    data: {
+      status: 'delivered',
+      note: 'Dodáno dne 1.12.2025',
+      totalPrice: 4200,
+      orderedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+      deliveredAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+      items: {
+        create: [
+          {
+            materialId: allMaterials[2].id,
+            quantity: 15,
+            price: 150,
+          },
+          {
+            materialId: allMaterials[3].id,
+            quantity: 12,
+            price: 175,
+          },
+        ],
+      },
+    },
+  })
+
+  console.log('✓ Sample orders created')
+
   console.log('\nLogin credentials:')
   console.log('Password: admin')
 }

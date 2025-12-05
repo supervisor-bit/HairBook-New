@@ -35,6 +35,8 @@ export default function MaterialsPage() {
   const [selectedGroup, setSelectedGroup] = useState<string>('all')
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null)
   const [movements, setMovements] = useState<MaterialMovement[]>([])
+  const [showLowStock, setShowLowStock] = useState(false)
+  const [movementFilter, setMovementFilter] = useState<'all' | 'in' | 'out'>('all')
   const [showNewMaterialForm, setShowNewMaterialForm] = useState(false)
   const [showNewGroupForm, setShowNewGroupForm] = useState(false)
   const [showMovementForm, setShowMovementForm] = useState(false)
@@ -243,7 +245,14 @@ export default function MaterialsPage() {
     if (res.ok) {
       setNewMovement({ type: 'in', quantity: '', note: '' })
       setShowMovementForm(false)
-      handleSelectMaterial(selectedMaterial)
+      
+      // Reload material detail to get updated stock and movements
+      const detailRes = await fetch(`/api/materials/${selectedMaterial.id}`)
+      const updatedMaterial = await detailRes.json()
+      setSelectedMaterial(updatedMaterial)
+      setMovements(updatedMaterial.movements || [])
+      
+      // Reload materials list
       loadMaterials()
     }
   }
@@ -318,17 +327,28 @@ export default function MaterialsPage() {
       </div>
 
       {/* Materials list */}
-      <div className="w-80 glass border-r border-purple-100/50 flex flex-col">
-        <div className="p-4 border-b border-purple-100/50">
+      <div className="w-96 glass border-r border-purple-100/50 flex flex-col">
+        <div className="p-4 border-b border-purple-100/50 space-y-3">
           <input
             type="text"
             placeholder="Hledat produkt..."
             className="w-full px-3 py-2 bg-white/60 border border-purple-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
           />
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showLowStock}
+              onChange={(e) => setShowLowStock(e.target.checked)}
+              className="w-4 h-4 text-red-600 rounded focus:ring-2 focus:ring-red-500"
+            />
+            <span className="text-sm text-gray-700">Pouze nízká zásoba</span>
+          </label>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {materials.map((material) => (
+          {materials
+            .filter(material => !showLowStock || (material.minStock > 0 && material.stockQuantity <= material.minStock))
+            .map((material) => (
             <button
               key={material.id}
               onClick={() => handleSelectMaterial(material)}
@@ -346,12 +366,13 @@ export default function MaterialsPage() {
                     {material.name}
                   </div>
                   {material.minStock > 0 && material.stockQuantity <= material.minStock && (
-                    <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full">
-                      ⚠️ Nízká zásoba
+                    <span className="text-red-600" title={`Chybí ${material.minStock - material.stockQuantity} ks do minimální zásoby`}>
+                      ⚠️
                     </span>
                   )}
                 </div>
                 <span className={`text-sm font-semibold ${
+                  material.minStock > 0 && material.stockQuantity <= material.minStock ? 'text-red-600' : 
                   material.stockQuantity > 0 ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {material.stockQuantity} ks
@@ -819,6 +840,13 @@ function MaterialDetail({
   onEdit: () => void
   onDelete: () => void
 }) {
+  const [movementFilter, setMovementFilter] = useState<'all' | 'in' | 'out'>('all')
+  
+  const filteredMovements = movements.filter(movement => {
+    if (movementFilter === 'all') return true
+    return movement.type === movementFilter
+  })
+  
   return (
     <div className="h-full flex flex-col">
       <div className="glass border-b border-purple-100/50 p-6">
@@ -828,6 +856,11 @@ function MaterialDetail({
               {material.name}
             </h1>
             <p className="text-gray-600">{material.group.name}</p>
+            {material.minStock > 0 && (
+              <p className="text-sm text-gray-500 mt-1">
+                Minimální zásoba: {material.minStock} ks
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -882,11 +915,45 @@ function MaterialDetail({
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Historie pohybů</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Historie pohybů</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMovementFilter('all')}
+              className={`px-3 py-1 text-sm rounded-lg transition-all ${
+                movementFilter === 'all'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
+                  : 'bg-white/60 text-gray-700 hover:bg-white'
+              }`}
+            >
+              Vše
+            </button>
+            <button
+              onClick={() => setMovementFilter('in')}
+              className={`px-3 py-1 text-sm rounded-lg transition-all ${
+                movementFilter === 'in'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-white/60 text-gray-700 hover:bg-white'
+              }`}
+            >
+              Příjem
+            </button>
+            <button
+              onClick={() => setMovementFilter('out')}
+              className={`px-3 py-1 text-sm rounded-lg transition-all ${
+                movementFilter === 'out'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-white/60 text-gray-700 hover:bg-white'
+              }`}
+            >
+              Výdej
+            </button>
+          </div>
+        </div>
 
-        {movements.length > 0 ? (
+        {filteredMovements.length > 0 ? (
           <div className="space-y-3">
-            {movements.map((movement) => (
+            {filteredMovements.map((movement) => (
               <div
                 key={movement.id}
                 className="glass rounded-xl p-4 shadow-soft border border-purple-100/30 hover:shadow-glow hover:border-purple-200/50 transition-all duration-200"
