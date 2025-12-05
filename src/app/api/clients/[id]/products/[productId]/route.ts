@@ -8,9 +8,28 @@ export async function DELETE(
   try {
     const { productId } = await context.params
 
-    await prisma.homeProduct.delete({
+    // First, get the product to find its purchaseId
+    const product = await prisma.homeProduct.findUnique({
       where: { id: productId },
     })
+
+    if (!product) {
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404 }
+      )
+    }
+
+    // Delete all products with the same purchaseId (or just this one if no purchaseId)
+    if (product.purchaseId) {
+      await prisma.homeProduct.deleteMany({
+        where: { purchaseId: product.purchaseId },
+      })
+    } else {
+      await prisma.homeProduct.delete({
+        where: { id: productId },
+      })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

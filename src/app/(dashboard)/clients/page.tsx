@@ -32,6 +32,12 @@ export default function ClientsPage() {
   const [editClient, setEditClient] = useState({ firstName: '', lastName: '', phone: '', groupId: '' })
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showNewGroupForm, setShowNewGroupForm] = useState(false)
+  const [newGroup, setNewGroup] = useState({ name: '' })
+  const [showEditGroupForm, setShowEditGroupForm] = useState(false)
+  const [editGroup, setEditGroup] = useState({ id: '', name: '' })
+  const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false)
+  const [groupToDelete, setGroupToDelete] = useState<ClientGroup | null>(null)
 
   useEffect(() => {
     loadGroups()
@@ -54,7 +60,7 @@ export default function ClientsPage() {
   const loadGroups = async () => {
     const res = await fetch('/api/client-groups')
     const data = await res.json()
-    setGroups([{ id: 'all', name: 'Všichni', isSystem: true, _count: { clients: 0 } }, ...data])
+    setGroups([{ id: 'all', name: 'Všichni', isSystem: true, _count: { clients: data.totalClients } }, ...data.groups])
   }
 
   const loadClients = async () => {
@@ -149,6 +155,66 @@ export default function ClientsPage() {
     return colors[index]
   }
 
+  const handleCreateGroup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const res = await fetch('/api/client-groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newGroup),
+    })
+    
+    if (res.ok) {
+      setNewGroup({ name: '' })
+      setShowNewGroupForm(false)
+      loadGroups()
+    }
+  }
+
+  const handleEditGroup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const res = await fetch(`/api/client-groups/${editGroup.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: editGroup.name }),
+    })
+    
+    if (res.ok) {
+      setShowEditGroupForm(false)
+      setEditGroup({ id: '', name: '' })
+      loadGroups()
+    }
+  }
+
+  const openEditGroupForm = (group: ClientGroup) => {
+    setEditGroup({ id: group.id, name: group.name })
+    setShowEditGroupForm(true)
+  }
+
+  const handleDeleteGroup = async () => {
+    if (!groupToDelete) return
+    
+    const res = await fetch(`/api/client-groups/${groupToDelete.id}`, {
+      method: 'DELETE',
+    })
+    
+    if (res.ok) {
+      setShowDeleteGroupConfirm(false)
+      setGroupToDelete(null)
+      if (selectedGroup === groupToDelete.id) {
+        setSelectedGroup('all')
+      }
+      loadGroups()
+    } else {
+      const error = await res.json()
+      alert(error.error || 'Chyba při mazání skupiny')
+    }
+  }
+
+  const openDeleteGroupConfirm = (group: ClientGroup) => {
+    setGroupToDelete(group)
+    setShowDeleteGroupConfirm(true)
+  }
+
   return (
     <div className="h-full flex">
       {/* Groups sidebar */}
@@ -158,11 +224,10 @@ export default function ClientsPage() {
         </div>
         <div className="flex-1 overflow-y-auto p-2">
           {groups.map((group) => (
-            <button
+            <div
               key={group.id}
-              onClick={() => setSelectedGroup(group.id)}
               className={`
-                w-full text-left px-3 py-2 rounded-lg mb-1 transition-all duration-200
+                w-full px-3 py-2 rounded-lg mb-1 transition-all duration-200 group
                 ${selectedGroup === group.id
                   ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-glow'
                   : 'text-gray-700 hover:bg-white/60 hover:shadow-soft'
@@ -170,16 +235,50 @@ export default function ClientsPage() {
               `}
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{group.name}</span>
-                <span className={`text-xs ${selectedGroup === group.id ? 'text-white/80' : 'text-gray-500'}`}>
-                  {group._count?.clients || 0}
-                </span>
+                <button
+                  onClick={() => setSelectedGroup(group.id)}
+                  className="flex-1 text-left flex items-center justify-between"
+                >
+                  <span className="text-sm font-medium">{group.name}</span>
+                  <span className={`text-xs ${selectedGroup === group.id ? 'text-white/80' : 'text-gray-500'}`}>
+                    {group._count?.clients || 0}
+                  </span>
+                </button>
+                {!group.isSystem && (
+                  <div className="flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openEditGroupForm(group)}
+                      className={`p-1 rounded hover:bg-white/20 transition-all ${
+                        selectedGroup === group.id ? 'text-white' : 'text-gray-600'
+                      }`}
+                      title="Upravit"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => openDeleteGroupConfirm(group)}
+                      className={`p-1 rounded hover:bg-white/20 transition-all ${
+                        selectedGroup === group.id ? 'text-white' : 'text-gray-600'
+                      }`}
+                      title="Smazat"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
-            </button>
+            </div>
           ))}
         </div>
         <div className="p-4 border-t border-purple-100/50">
-          <button className="w-full py-2 text-sm bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200">
+          <button 
+            onClick={() => setShowNewGroupForm(true)}
+            className="w-full py-2 text-sm bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
+          >
             + Přidat skupinu
           </button>
         </div>
@@ -426,6 +525,129 @@ export default function ClientsPage() {
           </div>
         </div>
       )}
+
+      {/* New Group Modal */}
+      {showNewGroupForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass rounded-2xl p-8 max-w-md w-full shadow-glow border border-purple-100/50 m-4">
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-6">Nová skupina</h2>
+            <form onSubmit={handleCreateGroup} className="space-y-4">
+              <input
+                type="text"
+                value={newGroup.name}
+                onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })}
+                placeholder="Název skupiny"
+                className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                required
+                autoFocus
+              />
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewGroupForm(false)
+                    setNewGroup({ name: '' })
+                  }}
+                  className="flex-1 py-3 bg-white/80 text-gray-700 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200"
+                >
+                  Zrušit
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
+                >
+                  Vytvořit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Group Modal */}
+      {showEditGroupForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass rounded-2xl p-8 max-w-md w-full shadow-glow border border-purple-100/50 m-4">
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-6">Upravit skupinu</h2>
+            <form onSubmit={handleEditGroup} className="space-y-4">
+              <input
+                type="text"
+                value={editGroup.name}
+                onChange={(e) => setEditGroup({ ...editGroup, name: e.target.value })}
+                placeholder="Název skupiny"
+                className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                required
+                autoFocus
+              />
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditGroupForm(false)
+                    setEditGroup({ id: '', name: '' })
+                  }}
+                  className="flex-1 py-3 bg-white/80 text-gray-700 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200"
+                >
+                  Zrušit
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
+                >
+                  Uložit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Group Confirmation Modal */}
+      {showDeleteGroupConfirm && groupToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowDeleteGroupConfirm(false)}>
+          <div className="glass rounded-2xl p-8 max-w-md w-full shadow-glow border border-red-100/50 m-4" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center mb-6">
+              <div className="text-6xl mb-4">⚠️</div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Smazat skupinu?</h2>
+              <p className="text-gray-600">
+                Opravdu chcete smazat skupinu <strong>{groupToDelete.name}</strong>?
+              </p>
+            </div>
+            
+            {groupToDelete._count.clients > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <p className="text-sm text-red-800 font-medium">
+                  ❌ Nelze smazat skupinu s klienty ({groupToDelete._count.clients})
+                </p>
+                <p className="text-sm text-red-700 mt-1">
+                  Nejprve přesuňte nebo smažte všechny klienty ze skupiny.
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteGroupConfirm(false)
+                  setGroupToDelete(null)
+                }}
+                className="flex-1 py-3 bg-white/80 text-gray-700 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200"
+              >
+                {groupToDelete._count.clients > 0 ? 'Zavřít' : 'Zrušit'}
+              </button>
+              {groupToDelete._count.clients === 0 && (
+                <button
+                  onClick={handleDeleteGroup}
+                  className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
+                >
+                  Ano, smazat
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -440,13 +662,22 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
   const [showDeleteNoteConfirm, setShowDeleteNoteConfirm] = useState<any>(null)
   const [showDeleteVisitConfirm, setShowDeleteVisitConfirm] = useState<any>(null)
   
-  // Products state
+  // Products state - Mini POS
   const [showProductForm, setShowProductForm] = useState(false)
-  const [productName, setProductName] = useState('')
-  const [productQuantity, setProductQuantity] = useState('')
-  const [productUnit, setProductUnit] = useState<'g' | 'ml' | 'ks'>('ks')
-  const [productNote, setProductNote] = useState('')
+  const [materials, setMaterials] = useState<any[]>([])
+  const [productCart, setProductCart] = useState<{materialId: string, quantity: number, price: number}[]>([])
+  const [searchProduct, setSearchProduct] = useState('')
+  const [totalPrice, setTotalPrice] = useState('')
   const [showDeleteProductConfirm, setShowDeleteProductConfirm] = useState<any>(null)
+
+  // Load materials for product selection
+  useEffect(() => {
+    if (showProductForm) {
+      fetch('/api/materials')
+        .then(res => res.json())
+        .then(data => setMaterials(data))
+    }
+  }, [showProductForm])
 
   const getAvatarColor = (name: string) => {
     const colors = [
@@ -506,29 +737,73 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
     setShowNoteForm(true)
   }
 
-  // Product functions
-  const handleAddProduct = async () => {
-    if (!productName.trim() || !productQuantity) return
+  // Product functions - Mini POS
+  const addToCart = (materialId: string, price: number = 0) => {
+    const existing = productCart.find(item => item.materialId === materialId)
+    if (existing) {
+      setProductCart(productCart.map(item => 
+        item.materialId === materialId 
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      ))
+    } else {
+      setProductCart([...productCart, { materialId, quantity: 1, price }])
+    }
+  }
+
+  const updateCartQuantity = (materialId: string, quantity: number) => {
+    if (quantity <= 0) {
+      setProductCart(productCart.filter(item => item.materialId !== materialId))
+    } else {
+      setProductCart(productCart.map(item => 
+        item.materialId === materialId 
+          ? { ...item, quantity }
+          : item
+      ))
+    }
+  }
+
+  const removeFromCart = (materialId: string) => {
+    setProductCart(productCart.filter(item => item.materialId !== materialId))
+  }
+
+  const getTotalPrice = () => {
+    return productCart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  }
+
+  const handleSaveProducts = async () => {
+    if (productCart.length === 0) return
     
+    // Validate total price
+    if (!totalPrice || totalPrice.trim() === '') {
+      alert('Prosím zadejte celkovou cenu')
+      return
+    }
+    
+    // Save all products in one request
     const res = await fetch(`/api/clients/${client.id}/products`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        productName: productName.trim(),
-        quantity: parseFloat(productQuantity),
-        unit: productUnit,
-        note: productNote.trim() || null,
+        products: productCart.map(item => ({
+          materialId: item.materialId,
+          quantity: item.quantity,
+        })),
+        totalPrice: totalPrice && totalPrice.trim() !== '' ? totalPrice : null,
+        note: null,
       }),
     })
     
-    if (res.ok) {
-      setProductName('')
-      setProductQuantity('')
-      setProductUnit('ks')
-      setProductNote('')
-      setShowProductForm(false)
-      onReload()
+    if (!res.ok) {
+      const error = await res.json()
+      alert(error.error || 'Chyba při ukládání produktů')
+      return
     }
+    
+    setProductCart([])
+    setTotalPrice('')
+    setShowProductForm(false)
+    onReload()
   }
 
   const handleDeleteProduct = async (productId: string) => {
@@ -543,10 +818,8 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
   }
 
   const openProductForm = () => {
-    setProductName('')
-    setProductQuantity('')
-    setProductUnit('ks')
-    setProductNote('')
+    setProductCart([])
+    setSearchProduct('')
     setShowProductForm(true)
   }
 
@@ -605,6 +878,19 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                   {client.visits?.reduce((sum: number, v: any) => sum + (v.totalPrice || 0), 0).toLocaleString('cs-CZ')} Kč
                 </div>
               </div>
+              <div className="px-4 py-2 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-lg">
+                <div className="text-xs text-gray-600 mb-1">Zakoupené produkty</div>
+                <div className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-600">
+                  {(() => {
+                    const grouped = (client.homeProducts || []).reduce((acc: any, p: any) => {
+                      const key = p.purchaseId || p.id
+                      if (!acc[key]) acc[key] = p
+                      return acc
+                    }, {})
+                    return Object.values(grouped).reduce((sum: number, p: any) => sum + (p.totalPrice || 0), 0).toLocaleString('cs-CZ')
+                  })()} Kč
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex gap-2">
@@ -656,7 +942,7 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                 : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-white/60 rounded-t-lg'
             }`}
           >
-            <span>🏠 Produkty pro domácí použití</span>
+            <span>🛍️ Zakoupené produkty</span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
               activeTab === 'products'
                 ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
@@ -768,7 +1054,7 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
         {activeTab === 'products' && (
           <div>
             <div className="mb-4 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Produkty pro domácí použití</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Zakoupené produkty</h3>
               <button
                 onClick={openProductForm}
                 className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200 text-sm"
@@ -779,41 +1065,80 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
 
             {client.homeProducts?.length > 0 ? (
               <div className="space-y-3">
-                {client.homeProducts.map((product: any) => (
-                  <div key={product.id} className="glass rounded-lg p-4 shadow-soft border border-purple-100/30 hover:shadow-glow hover:scale-[1.01] transition-all duration-200">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h4 className="font-semibold text-gray-900">{product.productName}</h4>
-                          <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">
-                            {product.quantity} {product.unit}
-                          </span>
+                {(() => {
+                  // Group products by purchaseId
+                  const grouped = client.homeProducts.reduce((acc: any, product: any) => {
+                    const key = product.purchaseId || product.id
+                    if (!acc[key]) {
+                      acc[key] = []
+                    }
+                    acc[key].push(product)
+                    return acc
+                  }, {})
+
+                  // Sort groups by latest createdAt
+                  const sortedGroups = Object.values(grouped).sort((a: any, b: any) => {
+                    return new Date(b[0].createdAt).getTime() - new Date(a[0].createdAt).getTime()
+                  })
+
+                  return sortedGroups.map((products: any) => {
+                    const firstProduct = products[0]
+                    const totalQuantity = products.reduce((sum: number, p: any) => sum + p.quantity, 0)
+                    
+                    return (
+                      <div key={firstProduct.purchaseId || firstProduct.id} className="glass rounded-lg p-4 shadow-soft border border-purple-100/30 hover:shadow-glow hover:scale-[1.01] transition-all duration-200">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="text-sm text-gray-500">
+                                {new Date(firstProduct.createdAt).toLocaleDateString('cs-CZ', {
+                                  day: 'numeric',
+                                  month: 'long',
+                                  year: 'numeric',
+                                })}
+                              </div>
+                              {firstProduct.totalPrice && (
+                                <span className="px-3 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-semibold">
+                                  {firstProduct.totalPrice.toLocaleString('cs-CZ')} Kč
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* List of products */}
+                            <div className="space-y-2">
+                              {products.map((product: any) => (
+                                <div key={product.id} className="flex items-center gap-2">
+                                  <span className="font-medium text-gray-900">{product.material.name}</span>
+                                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                                    {product.quantity} ks
+                                  </span>
+                                  <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
+                                    {product.material.group.name}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+
+                            {firstProduct.note && (
+                              <p className="text-sm text-gray-600 mt-2">{firstProduct.note}</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => setShowDeleteProductConfirm(firstProduct)}
+                            className="text-red-600 hover:text-red-700 text-sm ml-4"
+                          >
+                            🗑️ Smazat
+                          </button>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {new Date(product.createdAt).toLocaleDateString('cs-CZ', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                          })}
-                        </div>
-                        {product.note && (
-                          <p className="text-sm text-gray-600 mt-2">{product.note}</p>
-                        )}
                       </div>
-                      <button
-                        onClick={() => setShowDeleteProductConfirm(product)}
-                        className="text-red-600 hover:text-red-700 text-sm"
-                      >
-                        🗑️ Smazat
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                    )
+                  })
+                })()}
               </div>
             ) : (
               <div className="text-center text-gray-400 py-12">
-                <div className="text-5xl mb-4">🏠</div>
-                <p>Zatím žádné produkty</p>
+                <div className="text-5xl mb-4">🛍️</div>
+                <p>Zatím žádné zakoupené produkty</p>
               </div>
             )}
           </div>
@@ -1085,13 +1410,13 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
         </div>
       )}
 
-      {/* Product Form Modal */}
+      {/* Product POS Modal */}
       {showProductForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowProductForm(false)}>
-          <div className="glass rounded-2xl max-w-2xl w-full shadow-glow border border-purple-100/50" onClick={(e) => e.stopPropagation()}>
+          <div className="glass rounded-2xl max-w-6xl w-full shadow-glow border border-purple-100/50 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="p-6 border-b border-purple-100/50">
-              <h2 className="text-2xl font-bold text-gray-900">Nový produkt</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Prodej produktů</h2>
               <p className="text-gray-600 mt-1">
                 {new Date().toLocaleDateString('cs-CZ', { 
                   day: 'numeric', 
@@ -1101,93 +1426,153 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
               </p>
             </div>
 
-            {/* Content */}
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Název produktu
-                </label>
-                <input
-                  type="text"
-                  value={productName}
-                  onChange={(e) => setProductName(e.target.value)}
-                  placeholder="např. Šampon, Kondicionér, Maska..."
-                  className="w-full px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  autoFocus
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Množství
-                  </label>
+            {/* Content - Two columns */}
+            <div className="flex-1 overflow-hidden flex">
+              {/* Left: Product list */}
+              <div className="w-2/3 p-6 overflow-y-auto border-r border-purple-100/50">
+                <div className="mb-4">
                   <input
-                    type="number"
-                    value={productQuantity}
-                    onChange={(e) => setProductQuantity(e.target.value)}
-                    placeholder="0"
+                    type="text"
+                    value={searchProduct}
+                    onChange={(e) => setSearchProduct(e.target.value)}
+                    placeholder="🔍 Hledat produkt..."
                     className="w-full px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    step="0.01"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Jednotka
-                  </label>
-                  <div className="flex gap-2">
-                    {(['g', 'ml', 'ks'] as const).map((unit) => (
-                      <button
-                        key={unit}
-                        onClick={() => setProductUnit(unit)}
-                        className={`flex-1 px-4 py-3 rounded-lg border font-medium transition-colors ${
-                          productUnit === unit
-                            ? 'bg-purple-600 text-white border-purple-600'
-                            : 'bg-white text-gray-700 border-purple-200 hover:bg-purple-50'
-                        }`}
-                      >
-                        {unit}
-                      </button>
-                    ))}
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {materials
+                    .filter(m => {
+                      const matchesSearch = m.name.toLowerCase().includes(searchProduct.toLowerCase())
+                      const isRetail = m.isRetailProduct
+                      return matchesSearch && isRetail
+                    })
+                    .map((material) => (
+                    <button
+                      key={material.id}
+                      onClick={() => addToCart(material.id, 0)}
+                      disabled={material.stockQuantity <= 0}
+                      className="glass p-4 rounded-lg text-left hover:shadow-glow hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-purple-100/30"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <div className="font-semibold text-gray-900">{material.name}</div>
+                        {material.isRetailProduct && (
+                          <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium whitespace-nowrap">
+                            🏠 Retail
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600">{material.group.name}</div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className={`text-sm font-medium ${material.stockQuantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          Sklad: {material.stockQuantity} ks
+                        </span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Poznámka (volitelné)
-                </label>
-                <textarea
-                  value={productNote}
-                  onChange={(e) => setProductNote(e.target.value)}
-                  placeholder="Další informace o produktu..."
-                  className="w-full h-24 px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                />
-              </div>
-            </div>
+              {/* Right: Cart */}
+              <div className="w-1/3 p-6 flex flex-col">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Košík</h3>
+                
+                <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+                  {productCart.length === 0 ? (
+                    <div className="text-center text-gray-400 py-8">
+                      <div className="text-4xl mb-2">🛒</div>
+                      <p>Košík je prázdný</p>
+                    </div>
+                  ) : (
+                    productCart.map((item) => {
+                      const material = materials.find(m => m.id === item.materialId)
+                      if (!material) return null
+                      
+                      return (
+                        <div key={item.materialId} className="glass p-3 rounded-lg border border-purple-100/30">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900 text-sm">{material.name}</div>
+                              <div className="text-xs text-gray-500">{material.group.name}</div>
+                            </div>
+                            <button
+                              onClick={() => removeFromCart(item.materialId)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => updateCartQuantity(item.materialId, item.quantity - 1)}
+                              className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 font-bold"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => updateCartQuantity(item.materialId, parseInt(e.target.value) || 0)}
+                              className="w-16 text-center px-2 py-1 border border-purple-200 rounded-lg"
+                              min="1"
+                            />
+                            <button
+                              onClick={() => updateCartQuantity(item.materialId, item.quantity + 1)}
+                              className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 font-bold"
+                            >
+                              +
+                            </button>
+                            <span className="text-sm text-gray-600 ml-auto">ks</span>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
 
-            {/* Footer */}
-            <div className="p-6 border-t border-purple-100/50 flex gap-3">
-              <button
-                onClick={() => {
-                  setShowProductForm(false)
-                  setProductName('')
-                  setProductQuantity('')
-                  setProductUnit('ks')
-                  setProductNote('')
-                }}
-                className="flex-1 py-3 bg-white/80 text-gray-700 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200"
-              >
-                Zrušit
-              </button>
-              <button
-                onClick={handleAddProduct}
-                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!productName.trim() || !productQuantity || parseFloat(productQuantity) <= 0}
-              >
-                Přidat
-              </button>
+                {/* Total */}
+                {productCart.length > 0 && (
+                  <div className="border-t border-purple-100/50 pt-4 mb-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Celkem položek:</span>
+                      <span className="font-semibold">{productCart.reduce((sum, item) => sum + item.quantity, 0)} ks</span>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Celková cena
+                      </label>
+                      <input
+                        type="number"
+                        value={totalPrice}
+                        onChange={(e) => setTotalPrice(e.target.value)}
+                        placeholder="Zadejte celkovou cenu"
+                        className="w-full px-3 py-2 bg-white/60 border border-purple-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowProductForm(false)
+                      setProductCart([])
+                      setTotalPrice('')
+                    }}
+                    className="flex-1 py-3 bg-white/80 text-gray-700 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200"
+                  >
+                    Zrušit
+                  </button>
+                  <button
+                    onClick={handleSaveProducts}
+                    disabled={productCart.length === 0}
+                    className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Uložit ({productCart.length})
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

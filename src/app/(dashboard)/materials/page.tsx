@@ -41,6 +41,7 @@ export default function MaterialsPage() {
     unit: 'g',
     packageSize: '',
     stockQuantity: '0',
+    isRetailProduct: false,
   })
   const [newMovement, setNewMovement] = useState({
     type: 'in',
@@ -109,6 +110,7 @@ export default function MaterialsPage() {
         unit: 'g',
         packageSize: '',
         stockQuantity: '0',
+        isRetailProduct: false,
       })
       setShowNewMaterialForm(false)
       loadMaterials()
@@ -177,7 +179,7 @@ export default function MaterialsPage() {
         <div className="p-4 border-b border-purple-100/50">
           <input
             type="text"
-            placeholder="Hledat materiál..."
+            placeholder="Hledat produkt..."
             className="w-full px-3 py-2 bg-white/60 border border-purple-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
           />
         </div>
@@ -217,7 +219,7 @@ export default function MaterialsPage() {
             onClick={() => setShowNewMaterialForm(true)}
             className="w-full py-2 text-sm bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
           >
-            + Přidat materiál
+            + Přidat produkt
           </button>
         </div>
       </div>
@@ -234,7 +236,7 @@ export default function MaterialsPage() {
           <div className="h-full flex items-center justify-center text-gray-400">
             <div className="text-center">
               <div className="text-6xl mb-4">📦</div>
-              <p className="text-lg">Vyberte materiál ze seznamu</p>
+              <p className="text-lg">Vyberte produkt ze seznamu</p>
             </div>
           </div>
         )}
@@ -279,13 +281,13 @@ export default function MaterialsPage() {
       {showNewMaterialForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="glass rounded-2xl p-8 max-w-md w-full shadow-glow border border-purple-100/50 m-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-6">Nový materiál</h2>
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-6">Nový produkt</h2>
             <form onSubmit={handleCreateMaterial} className="space-y-4">
               <input
                 type="text"
                 value={newMaterial.name}
                 onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })}
-                placeholder="Název materiálu"
+                placeholder="Název produktu"
                 className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                 required
               />
@@ -329,6 +331,18 @@ export default function MaterialsPage() {
                 className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                 required
               />
+              <label className="flex items-center gap-3 cursor-pointer p-4 bg-white/40 rounded-lg border border-purple-200 hover:bg-white/60 transition-all duration-200">
+                <input
+                  type="checkbox"
+                  checked={newMaterial.isRetailProduct}
+                  onChange={(e) => setNewMaterial({ ...newMaterial, isRetailProduct: e.target.checked })}
+                  className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                />
+                <div>
+                  <div className="font-medium text-gray-900">🏠 Produkt pro domácí použití</div>
+                  <div className="text-sm text-gray-600">Produkt je určen k prodeji klientům</div>
+                </div>
+              </label>
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -451,7 +465,7 @@ function MaterialDetail({
             </div>
           </div>
           <div className="glass p-4 rounded-xl border border-purple-100/50">
-            <div className="text-sm text-gray-600 mb-1">Celkem materiálu</div>
+            <div className="text-sm text-gray-600 mb-1">Celkem produktů</div>
             <div className="text-xl font-semibold text-gray-900">
               {(material.stockQuantity * material.packageSize).toFixed(1)} {material.unit}
             </div>

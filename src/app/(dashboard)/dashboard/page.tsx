@@ -25,7 +25,7 @@ export default function DashboardPage() {
             className="group p-8 glass rounded-2xl shadow-soft hover:shadow-xl transition-all border border-white/20 transform hover:-translate-y-1"
           >
             <div className="text-5xl mb-4 transform group-hover:scale-110 transition-transform">📦</div>
-            <div className="font-semibold text-gray-900 text-lg">Materiály</div>
+            <div className="font-semibold text-gray-900 text-lg">Produkty</div>
             <p className="text-sm text-gray-600 mt-2">Evidence skladu</p>
           </a>
         </div>

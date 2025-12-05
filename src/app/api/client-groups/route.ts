@@ -11,7 +11,14 @@ export async function GET() {
         },
       },
     })
-    return NextResponse.json(groups)
+    
+    // Get total client count for "Všichni" group
+    const totalClients = await prisma.client.count()
+    
+    return NextResponse.json({
+      groups,
+      totalClients
+    })
   } catch (error) {
     return NextResponse.json({ error: 'Database error' }, { status: 500 })
   }

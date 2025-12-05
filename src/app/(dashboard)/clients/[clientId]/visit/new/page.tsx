@@ -72,6 +72,7 @@ export default function NewVisitPage() {
   const servicesEndRef = useRef<HTMLDivElement>(null)
   const priceInputRef = useRef<HTMLInputElement>(null)
   const materialQuantityInputRef = useRef<HTMLInputElement>(null)
+  const isCreatingVisit = useRef(false)
   
   // Quick mode state
   const [quickMode, setQuickMode] = useState(false)
@@ -81,9 +82,12 @@ export default function NewVisitPage() {
   const [editingMaterial, setEditingMaterial] = useState<{visitServiceId: string, visitMaterialId: string} | null>(null)
 
   useEffect(() => {
-    createVisit()
-    loadServiceGroups()
-    loadMaterials()
+    if (!isCreatingVisit.current) {
+      isCreatingVisit.current = true
+      createVisit()
+      loadServiceGroups()
+      loadMaterials()
+    }
   }, [])
 
   useEffect(() => {

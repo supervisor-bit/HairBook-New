@@ -55,14 +55,16 @@ model ClientNote {
 
 // Home Products (for client history)
 model HomeProduct {
-  id        String   @id @default(cuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  productName String
-  quantity  Float
-  unit      String   // g, ml, ks
-  note      String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id])
+  quantity   Int      // always in pieces (ks)
+  purchaseId String?  // group products from same purchase
+  totalPrice Float?   // total price for this purchase (only set on first item in group)
+  note       String?
+  createdAt  DateTime @default(now())
 }
 
 // Material Groups
@@ -83,10 +85,14 @@ model Material {
   unit          String          // g, ml, ks
   packageSize   Float           // size of one package (100g, 500ml, 1ks)
   stockQuantity Float           @default(0) // in packages (ks)
+  isRetailProduct Boolean       @default(false) // true = produkt pro domácí použití (maloobchod)
+  retailPrice   Float?          // prodejní cena za kus (pro retail produkty)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   movements     MaterialMovement[]
   visitMaterials VisitMaterial[]
+  visitProducts  VisitProduct[]
+  homeProducts   HomeProduct[]
 }
 
 // Material Movements (history)
@@ -134,6 +140,7 @@ model Visit {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   services  VisitService[]
+  products  VisitProduct[]
 }
 
 // Visit Services
@@ -158,4 +165,16 @@ model VisitMaterial {
   quantity       Float        // amount used
   unit           String       // g, ml, ks
   createdAt      DateTime     @default(now())
+}
+
+// Visit Products (products sold to client)
+model VisitProduct {
+  id         String   @id @default(cuid())
+  visitId    String
+  visit      Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id])
+  quantity   Int      // always in pieces (ks)
+  price      Float?   // optional price per piece
+  createdAt  DateTime @default(now())
 }

@@ -6,7 +6,7 @@ import Link from 'next/link'
 const menuItems = [
   { icon: '🏠', label: 'Dashboard', href: '/dashboard' },
   { icon: '👥', label: 'Klienti', href: '/clients' },
-  { icon: '📦', label: 'Materiály', href: '/materials' },
+  { icon: '📦', label: 'Produkty', href: '/materials' },
   { icon: '⚙️', label: 'Nastavení', href: '/settings' },
 ]
 

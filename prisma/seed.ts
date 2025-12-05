@@ -6,6 +6,13 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('Seeding database...')
 
+  // Check if database is already seeded
+  const existingUser = await prisma.user.findFirst()
+  if (existingUser) {
+    console.log('⚠ Database already seeded, skipping...')
+    return
+  }
+
   // Create user
   const hashedPassword = await bcrypt.hash('admin', 10)
   await prisma.user.create({
@@ -95,6 +102,7 @@ async function main() {
         unit: 'ml',
         packageSize: 500,
         stockQuantity: 15,
+        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Serie Expert Absolut Repair',
@@ -102,6 +110,7 @@ async function main() {
         unit: 'ml',
         packageSize: 500,
         stockQuantity: 12,
+        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Serie Expert Silver',
@@ -109,6 +118,7 @@ async function main() {
         unit: 'ml',
         packageSize: 500,
         stockQuantity: 8,
+        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Serie Expert Curl Expression',
@@ -124,6 +134,7 @@ async function main() {
         unit: 'ml',
         packageSize: 400,
         stockQuantity: 14,
+        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Tecni.Art Volume Lift',
@@ -131,6 +142,7 @@ async function main() {
         unit: 'ml',
         packageSize: 250,
         stockQuantity: 9,
+        isRetailProduct: true,
       },
       {
         name: 'L\'Oréal Professionnel Tecni.Art Pli',
@@ -235,32 +247,29 @@ async function main() {
   })
   console.log('✓ Sample clients created')
 
-  // Get first client for adding sample products
+  // Get first client and some materials for adding sample products
   const firstClient = await prisma.client.findFirst()
+  const shampooMaterial = await prisma.material.findFirst({
+    where: { name: { contains: 'Oréal' } }
+  })
+  const stylingMaterial = await prisma.material.findFirst({
+    where: { name: { contains: 'Fix Max' } }
+  })
   
-  if (firstClient) {
+  if (firstClient && shampooMaterial && stylingMaterial) {
     await prisma.homeProduct.createMany({
       data: [
         {
           clientId: firstClient.id,
-          productName: 'L\'Oréal Professionnel Šampon Serie Expert',
-          quantity: 250,
-          unit: 'ml',
+          materialId: shampooMaterial.id,
+          quantity: 2,
           note: 'Pro barvené vlasy',
         },
         {
           clientId: firstClient.id,
-          productName: 'Kerastase Nutritive Maska',
-          quantity: 200,
-          unit: 'ml',
-          note: 'Použít 2x týdně',
-        },
-        {
-          clientId: firstClient.id,
-          productName: 'Olaplex No. 3',
-          quantity: 100,
-          unit: 'ml',
-          note: 'Aplikovat před mytím',
+          materialId: stylingMaterial.id,
+          quantity: 1,
+          note: 'Silná fixace',
         },
       ],
     })
