@@ -1,0 +1,161 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Authentication
+model User {
+  id        String   @id @default(cuid())
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Client Groups
+model ClientGroup {
+  id        String   @id @default(cuid())
+  name      String
+  isSystem  Boolean  @default(false) // true for VIP, New, Regular
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  clients   Client[]
+}
+
+// Clients
+model Client {
+  id          String        @id @default(cuid())
+  firstName   String
+  lastName    String
+  phone       String
+  avatar      String?       // URL or initials
+  groupId     String?
+  group       ClientGroup?  @relation(fields: [groupId], references: [id])
+  visits      Visit[]
+  homeProducts HomeProduct[]
+  notes       ClientNote[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+// Client Notes
+model ClientNote {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  note      String
+  createdAt DateTime @default(now())
+}
+
+// Home Products (for client history)
+model HomeProduct {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  productName String
+  quantity  Float
+  unit      String   // g, ml, ks
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+// Material Groups
+model MaterialGroup {
+  id        String     @id @default(cuid())
+  name      String
+  order     Int        @default(0)
+  createdAt DateTime   @default(now())
+  materials Material[]
+}
+
+// Materials
+model Material {
+  id            String          @id @default(cuid())
+  name          String
+  groupId       String
+  group         MaterialGroup   @relation(fields: [groupId], references: [id])
+  unit          String          // g, ml, ks
+  packageSize   Float           // size of one package (100g, 500ml, 1ks)
+  stockQuantity Float           @default(0) // in packages (ks)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  movements     MaterialMovement[]
+  visitMaterials VisitMaterial[]
+}
+
+// Material Movements (history)
+model MaterialMovement {
+  id         String   @id @default(cuid())
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  type       String   // "in" = prijem, "out" = vydej, "visit" = pouzito v navsteve
+  quantity   Float    // in packages (ks)
+  note       String?
+  visitId    String?
+  createdAt  DateTime @default(now())
+}
+
+// Service Groups
+model ServiceGroup {
+  id        String    @id @default(cuid())
+  name      String
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+  services  Service[]
+}
+
+// Services
+model Service {
+  id        String       @id @default(cuid())
+  name      String
+  groupId   String?
+  group     ServiceGroup? @relation(fields: [groupId], references: [id])
+  order     Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  visitServices VisitService[]
+}
+
+// Visits
+model Visit {
+  id        String         @id @default(cuid())
+  clientId  String
+  client    Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status    String         @default("saved") // "saved" = ulozena (editable), "closed" = uzavrena (locked)
+  totalPrice Float?
+  note      String?
+  closedAt  DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  services  VisitService[]
+}
+
+// Visit Services
+model VisitService {
+  id        String          @id @default(cuid())
+  visitId   String
+  visit     Visit           @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  serviceId String
+  service   Service         @relation(fields: [serviceId], references: [id])
+  order     Int             @default(0)
+  createdAt DateTime        @default(now())
+  materials VisitMaterial[]
+}
+
+// Visit Materials (materials used in a service)
+model VisitMaterial {
+  id             String       @id @default(cuid())
+  visitServiceId String
+  visitService   VisitService @relation(fields: [visitServiceId], references: [id], onDelete: Cascade)
+  materialId     String
+  material       Material     @relation(fields: [materialId], references: [id])
+  quantity       Float        // amount used
+  unit           String       // g, ml, ks
+  createdAt      DateTime     @default(now())
+}
