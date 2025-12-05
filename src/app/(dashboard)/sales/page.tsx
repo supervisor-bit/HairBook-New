@@ -84,6 +84,12 @@ export default function SalesPage() {
   const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [transactionType, setTransactionType] = useState<'sale' | 'usage'>('sale')
   const [totalPrice, setTotalPrice] = useState('')
+  
+  // Modal states
+  const [showRemoveItemConfirm, setShowRemoveItemConfirm] = useState<CartItem | null>(null)
+  const [showPriceWarning, setShowPriceWarning] = useState(false)
+  const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null)
+  const [showErrorMessage, setShowErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     loadMaterials()
@@ -209,7 +215,17 @@ export default function SalesPage() {
   }
 
   const removeFromCart = (materialId: string) => {
-    setCart(cart.filter(item => item.material.id !== materialId))
+    const item = cart.find(i => i.material.id === materialId)
+    if (item) {
+      setShowRemoveItemConfirm(item)
+    }
+  }
+  
+  const confirmRemoveFromCart = () => {
+    if (showRemoveItemConfirm) {
+      setCart(cart.filter(item => item.material.id !== showRemoveItemConfirm.material.id))
+      setShowRemoveItemConfirm(null)
+    }
   }
 
   const getTotalItems = () => {
@@ -229,7 +245,7 @@ export default function SalesPage() {
 
     // Validate price for SALE transactions
     if (transactionType === 'sale' && !totalPrice) {
-      alert('⚠️ Zadejte celkovou cenu pro prodej')
+      setShowPriceWarning(true)
       return
     }
 
@@ -252,17 +268,17 @@ export default function SalesPage() {
 
       if (response.ok) {
         clearCart()
-        const message = transactionType === 'sale' ? '✅ Prodej byl úspěšně zaznamenán!' : '✅ Výdej byl úspěšně zaznamenán!'
-        alert(message)
+        const message = transactionType === 'sale' ? 'Prodej byl úspěšně zaznamenán!' : 'Výdej byl úspěšně zaznamenán!'
+        setShowSuccessMessage(message)
         loadMaterials()
         loadSales()
       } else {
         const error = await response.json()
-        alert('❌ ' + (error.error || 'Chyba při zpracování prodeje'))
+        setShowErrorMessage(error.error || 'Chyba při zpracování prodeje')
       }
     } catch (error) {
       console.error('Sale error:', error)
-      alert('❌ Chyba při zpracování prodeje')
+      setShowErrorMessage('Chyba při zpracování prodeje')
     } finally {
       setIsProcessing(false)
     }
@@ -379,10 +395,17 @@ export default function SalesPage() {
                             <div className="flex items-center gap-2 mb-1">
                               <span className={`px-2 py-0.5 text-xs rounded-full ${
                                 sale.type === 'SALE' 
-                                  ? 'bg-green-100 text-green-700' 
+                                  ? sale.client 
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-orange-100 text-orange-700'
                                   : 'bg-blue-100 text-blue-700'
                               }`}>
-                                {sale.type === 'SALE' ? '🛍️ Prodáno' : '🔧 Výdej'}
+                                {sale.type === 'SALE' 
+                                  ? sale.client 
+                                    ? '🛍️ Prodej' 
+                                    : '🛒 Prodej (anonymní)'
+                                  : '🔧 Výdej pro práci'
+                                }
                               </span>
                               <span className="text-xs text-gray-500">
                                 {new Date(sale.createdAt).toLocaleDateString('cs-CZ')} {new Date(sale.createdAt).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
@@ -702,6 +725,103 @@ export default function SalesPage() {
           </div>
         </div>
       </div>
+
+      {/* Remove Item Confirmation Modal */}
+      {showRemoveItemConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">🗑️</span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Odebrat produkt z košíku?</h3>
+              <p className="text-gray-600">
+                Opravdu chcete odebrat <strong>{showRemoveItemConfirm.material.name}</strong> z košíku?
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRemoveItemConfirm(null)}
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+              >
+                Zrušit
+              </button>
+              <button
+                onClick={confirmRemoveFromCart}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl font-bold hover:from-red-700 hover:to-pink-700 transition-all shadow-lg"
+              >
+                Odebrat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Price Warning Modal */}
+      {showPriceWarning && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">⚠️</span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Chybí celková cena</h3>
+              <p className="text-gray-600">
+                Pro dokončení prodeje je nutné zadat celkovou cenu.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowPriceWarning(false)}
+              className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg"
+            >
+              Rozumím
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Success Message Modal */}
+      {showSuccessMessage && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">✅</span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Úspěšně dokončeno!</h3>
+              <p className="text-gray-600">{showSuccessMessage}</p>
+            </div>
+            <button
+              onClick={() => setShowSuccessMessage(null)}
+              className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg"
+            >
+              Pokračovat
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error Message Modal */}
+      {showErrorMessage && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">❌</span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Chyba</h3>
+              <p className="text-gray-600">{showErrorMessage}</p>
+            </div>
+            <button
+              onClick={() => setShowErrorMessage(null)}
+              className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl font-bold hover:from-red-700 hover:to-pink-700 transition-all shadow-lg"
+            >
+              Zavřít
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

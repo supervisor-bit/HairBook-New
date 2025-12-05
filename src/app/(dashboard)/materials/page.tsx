@@ -27,6 +27,11 @@ interface MaterialMovement {
   quantity: number
   note: string | null
   createdAt: string
+  client?: {
+    id: string
+    firstName: string
+    lastName: string
+  } | null
 }
 
 export default function MaterialsPage() {
@@ -961,16 +966,29 @@ function MaterialDetail({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      movement.type === 'in'
+                      movement.type === 'DELIVERY' || movement.type === 'PURCHASE'
                         ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700'
-                        : movement.type === 'out'
-                        ? 'bg-gradient-to-r from-red-100 to-rose-100 text-red-700'
-                        : 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700'
+                        : movement.type === 'SALE'
+                        ? movement.client
+                          ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700'
+                          : 'bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700'
+                        : movement.type === 'USAGE'
+                        ? 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700'
+                        : 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700'
                     }`}>
-                      {movement.type === 'in' ? 'Příjem' : movement.type === 'out' ? 'Výdej' : 'Návštěva'}
+                      {movement.type === 'DELIVERY' || movement.type === 'PURCHASE'
+                        ? '📦 Příjem'
+                        : movement.type === 'SALE'
+                        ? movement.client
+                          ? '🛍️ Prodej'
+                          : '🛒 Prodej (anonymní)'
+                        : movement.type === 'USAGE'
+                        ? '🔧 Výdej pro práci'
+                        : '🏥 Návštěva'
+                      }
                     </span>
                     <span className="font-semibold text-gray-900">
-                      {movement.type === 'in' ? '+' : '-'}{movement.quantity} ks
+                      {(movement.type === 'DELIVERY' || movement.type === 'PURCHASE') ? '+' : '-'}{Math.abs(movement.quantity)} ks
                     </span>
                   </div>
                   <span className="text-sm text-gray-500">

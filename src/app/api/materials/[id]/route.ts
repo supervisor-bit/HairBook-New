@@ -12,6 +12,15 @@ export async function GET(
       include: {
         group: true,
         movements: {
+          include: {
+            client: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
           orderBy: { createdAt: 'desc' },
           take: 50,
         },
