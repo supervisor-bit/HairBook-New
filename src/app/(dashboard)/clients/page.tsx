@@ -820,6 +820,7 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
   const openProductForm = () => {
     setProductCart([])
     setSearchProduct('')
+    setTotalPrice('')
     setShowProductForm(true)
   }
 
@@ -1125,9 +1126,10 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                           </div>
                           <button
                             onClick={() => setShowDeleteProductConfirm(firstProduct)}
-                            className="text-red-600 hover:text-red-700 text-sm ml-4"
+                            className="p-2 bg-white/80 text-red-600 rounded-lg hover:bg-red-50 hover:shadow-soft transition-all duration-200 ml-4"
+                            title="Smazat"
                           >
-                            🗑️ Smazat
+                            🗑️
                           </button>
                         </div>
                       </div>
@@ -1581,16 +1583,22 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
       {/* Delete Product Confirmation Modal */}
       {showDeleteProductConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowDeleteProductConfirm(null)}>
-          <div className="glass rounded-2xl max-w-md w-full shadow-glow border border-purple-100/50" onClick={(e) => e.stopPropagation()}>
+          <div className="glass rounded-2xl max-w-md w-full shadow-glow border border-red-100/50" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="text-center mb-6">
                 <div className="text-6xl mb-4">⚠️</div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Smazat produkt?</h2>
-                <p className="text-gray-600 mb-2">
-                  <strong>{showDeleteProductConfirm.productName}</strong>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Smazat nákup?</h2>
+                <p className="text-gray-600 mb-4">
+                  Opravdu chcete smazat tento nákup?
                 </p>
-                <p className="text-sm text-gray-500">
-                  Tato akce je nevratná.
+              </div>
+
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <p className="text-sm text-red-800 font-medium mb-2">
+                  🚨 Tato akce je nevratná!
+                </p>
+                <p className="text-sm text-red-700">
+                  Budou smazány také všechny skladové pohyby tohoto nákupu.
                 </p>
               </div>
 
@@ -1605,7 +1613,7 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                   onClick={() => handleDeleteProduct(showDeleteProductConfirm.id)}
                   className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
                 >
-                  Smazat
+                  Ano, smazat
                 </button>
               </div>
             </div>

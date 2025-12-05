@@ -14,7 +14,10 @@ interface Material {
   unit: string
   packageSize: number
   stockQuantity: number
+  groupId: string
+  isRetailProduct: boolean
   group: { name: string }
+  _count?: { movements: number }
 }
 
 interface MaterialMovement {
@@ -34,7 +37,21 @@ export default function MaterialsPage() {
   const [showNewMaterialForm, setShowNewMaterialForm] = useState(false)
   const [showNewGroupForm, setShowNewGroupForm] = useState(false)
   const [showMovementForm, setShowMovementForm] = useState(false)
+  const [showEditMaterialForm, setShowEditMaterialForm] = useState(false)
+  const [showDeleteMaterialConfirm, setShowDeleteMaterialConfirm] = useState<Material | null>(null)
+  const [showEditGroupForm, setShowEditGroupForm] = useState(false)
+  const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false)
+  const [editMaterial, setEditMaterial] = useState<{
+    id: string
+    name: string
+    groupId: string
+    unit: string
+    packageSize: string
+    isRetailProduct: boolean
+  } | null>(null)
   const [newGroup, setNewGroup] = useState({ name: '' })
+  const [editGroup, setEditGroup] = useState({ id: '', name: '' })
+  const [groupToDelete, setGroupToDelete] = useState<MaterialGroup | null>(null)
   const [newMaterial, setNewMaterial] = useState({
     name: '',
     groupId: '',
@@ -95,6 +112,51 @@ export default function MaterialsPage() {
     }
   }
 
+  const handleEditGroup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const res = await fetch(`/api/material-groups/${editGroup.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: editGroup.name }),
+    })
+    
+    if (res.ok) {
+      setShowEditGroupForm(false)
+      setEditGroup({ id: '', name: '' })
+      loadGroups()
+    }
+  }
+
+  const openEditGroupForm = (group: MaterialGroup) => {
+    setEditGroup({ id: group.id, name: group.name })
+    setShowEditGroupForm(true)
+  }
+
+  const handleDeleteGroup = async () => {
+    if (!groupToDelete) return
+    
+    const res = await fetch(`/api/material-groups/${groupToDelete.id}`, {
+      method: 'DELETE',
+    })
+    
+    if (res.ok) {
+      setShowDeleteGroupConfirm(false)
+      setGroupToDelete(null)
+      if (selectedGroup === groupToDelete.id) {
+        setSelectedGroup('all')
+      }
+      loadGroups()
+    } else {
+      const error = await res.json()
+      alert(error.error || 'Chyba při mazání skupiny')
+    }
+  }
+
+  const openDeleteGroupConfirm = (group: MaterialGroup) => {
+    setGroupToDelete(group)
+    setShowDeleteGroupConfirm(true)
+  }
+
   const handleCreateMaterial = async (e: React.FormEvent) => {
     e.preventDefault()
     const res = await fetch('/api/materials', {
@@ -114,6 +176,52 @@ export default function MaterialsPage() {
       })
       setShowNewMaterialForm(false)
       loadMaterials()
+    }
+  }
+
+  const handleUpdateMaterial = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editMaterial) return
+    
+    const res = await fetch(`/api/materials/${editMaterial.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: editMaterial.name,
+        groupId: editMaterial.groupId,
+        unit: editMaterial.unit,
+        packageSize: editMaterial.packageSize,
+        isRetailProduct: editMaterial.isRetailProduct,
+      }),
+    })
+
+    if (res.ok) {
+      const updated = await res.json()
+      setShowEditMaterialForm(false)
+      setEditMaterial(null)
+      loadMaterials()
+      if (selectedMaterial?.id === updated.id) {
+        setSelectedMaterial(updated)
+      }
+    }
+  }
+
+  const handleDeleteMaterial = async () => {
+    if (!showDeleteMaterialConfirm) return
+    
+    const res = await fetch(`/api/materials/${showDeleteMaterialConfirm.id}`, {
+      method: 'DELETE',
+    })
+
+    if (res.ok) {
+      setShowDeleteMaterialConfirm(null)
+      if (selectedMaterial?.id === showDeleteMaterialConfirm.id) {
+        setSelectedMaterial(null)
+      }
+      loadMaterials()
+    } else {
+      const error = await res.json()
+      alert(error.error || 'Chyba při mazání produktu')
     }
   }
 
@@ -144,11 +252,10 @@ export default function MaterialsPage() {
         </div>
         <div className="flex-1 overflow-y-auto p-2">
           {groups.map((group) => (
-            <button
+            <div
               key={group.id}
-              onClick={() => setSelectedGroup(group.id)}
               className={`
-                w-full text-left px-3 py-2 rounded-lg mb-1 transition-all duration-200
+                w-full px-3 py-2 rounded-lg mb-1 transition-all duration-200 group
                 ${selectedGroup === group.id
                   ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-glow'
                   : 'text-gray-700 hover:bg-white/60 hover:shadow-soft'
@@ -156,12 +263,43 @@ export default function MaterialsPage() {
               `}
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{group.name}</span>
-                <span className={`text-xs ${selectedGroup === group.id ? 'text-white/80' : 'text-gray-500'}`}>
-                  {group._count?.materials || 0}
-                </span>
+                <button
+                  onClick={() => setSelectedGroup(group.id)}
+                  className="flex-1 text-left flex items-center justify-between"
+                >
+                  <span className="text-sm font-medium">{group.name}</span>
+                  <span className={`text-xs ${selectedGroup === group.id ? 'text-white/80' : 'text-gray-500'}`}>
+                    {group._count?.materials || 0}
+                  </span>
+                </button>
+                {group.id !== 'all' && (
+                  <div className="flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openEditGroupForm(group)}
+                      className={`p-1 rounded hover:bg-white/20 transition-all ${
+                        selectedGroup === group.id ? 'text-white' : 'text-gray-600'
+                      }`}
+                      title="Upravit"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => openDeleteGroupConfirm(group)}
+                      className={`p-1 rounded hover:bg-white/20 transition-all ${
+                        selectedGroup === group.id ? 'text-white' : 'text-gray-600'
+                      }`}
+                      title="Smazat"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
-            </button>
+            </div>
           ))}
         </div>
         <div className="p-4 border-t border-purple-100/50">
@@ -231,6 +369,18 @@ export default function MaterialsPage() {
             material={selectedMaterial}
             movements={movements}
             onAddMovement={() => setShowMovementForm(true)}
+            onEdit={() => {
+              setEditMaterial({
+                id: selectedMaterial.id,
+                name: selectedMaterial.name,
+                groupId: selectedMaterial.groupId,
+                unit: selectedMaterial.unit,
+                packageSize: selectedMaterial.packageSize.toString(),
+                isRetailProduct: selectedMaterial.isRetailProduct,
+              })
+              setShowEditMaterialForm(true)
+            }}
+            onDelete={() => setShowDeleteMaterialConfirm(selectedMaterial)}
           />
         ) : (
           <div className="h-full flex items-center justify-center text-gray-400">
@@ -273,6 +423,83 @@ export default function MaterialsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Group Modal */}
+      {showEditGroupForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass rounded-2xl p-8 max-w-md w-full shadow-glow border border-purple-100/50 m-4">
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-6">Upravit skupinu</h2>
+            <form onSubmit={handleEditGroup}>
+              <input
+                type="text"
+                value={editGroup.name}
+                onChange={(e) => setEditGroup({ ...editGroup, name: e.target.value })}
+                placeholder="Název skupiny"
+                className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                required
+                autoFocus
+              />
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditGroupForm(false)
+                    setEditGroup({ id: '', name: '' })
+                  }}
+                  className="flex-1 py-3 bg-white/80 text-gray-700 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200"
+                >
+                  Zrušit
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
+                >
+                  Uložit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Group Confirmation Modal */}
+      {showDeleteGroupConfirm && groupToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass rounded-2xl p-8 max-w-md w-full shadow-glow border border-red-100/50 m-4">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Smazat skupinu?</h2>
+            <p className="text-gray-700 mb-4">
+              Opravdu chcete smazat skupinu <strong>{groupToDelete.name}</strong>?
+            </p>
+            {groupToDelete._count && groupToDelete._count.materials > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <p className="text-red-600 text-sm font-medium">
+                  ❌ Nelze smazat skupinu s produkty ({groupToDelete._count.materials})
+                </p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteGroupConfirm(false)
+                  setGroupToDelete(null)
+                }}
+                className="flex-1 py-3 bg-white/80 text-gray-700 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200"
+              >
+                Zrušit
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteGroup}
+                disabled={groupToDelete._count && groupToDelete._count.materials > 0}
+                className="flex-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                Smazat
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -340,7 +567,7 @@ export default function MaterialsPage() {
                 />
                 <div>
                   <div className="font-medium text-gray-900">🏠 Produkt pro domácí použití</div>
-                  <div className="text-sm text-gray-600">Produkt je určen k prodeji klientům</div>
+                  <div className="text-sm text-gray-600">Produkt je určen k prodeji klientům (cena se zadává při prodeji)</div>
                 </div>
               </label>
               <div className="flex gap-3 pt-2">
@@ -359,6 +586,134 @@ export default function MaterialsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Material Modal */}
+      {showEditMaterialForm && editMaterial && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass rounded-2xl p-8 max-w-md w-full shadow-glow border border-purple-100/50 m-4">
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-6">Upravit produkt</h2>
+            <form onSubmit={handleUpdateMaterial} className="space-y-4">
+              <input
+                type="text"
+                value={editMaterial.name}
+                onChange={(e) => setEditMaterial({ ...editMaterial, name: e.target.value })}
+                placeholder="Název produktu"
+                className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                required
+              />
+              <select
+                value={editMaterial.groupId}
+                onChange={(e) => setEditMaterial({ ...editMaterial, groupId: e.target.value })}
+                className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+              >
+                {groups.map(group => (
+                  <option key={group.id} value={group.id}>{group.name}</option>
+                ))}
+              </select>
+              <select
+                value={editMaterial.unit}
+                onChange={(e) => setEditMaterial({ ...editMaterial, unit: e.target.value })}
+                className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+              >
+                <option value="g">gramy (g)</option>
+                <option value="ml">mililitry (ml)</option>
+                <option value="ks">kusy (ks)</option>
+              </select>
+              <input
+                type="number"
+                step="0.1"
+                value={editMaterial.packageSize}
+                onChange={(e) => setEditMaterial({ ...editMaterial, packageSize: e.target.value })}
+                placeholder="Velikost balení"
+                className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                required
+              />
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.1"
+                  value={selectedMaterial?.stockQuantity || 0}
+                  disabled
+                  placeholder="Stav skladu (ks)"
+                  className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 cursor-not-allowed"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+                  nelze upravit
+                </div>
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer p-4 bg-white/40 rounded-lg border border-purple-200 hover:bg-white/60 transition-all duration-200">
+                <input
+                  type="checkbox"
+                  checked={editMaterial.isRetailProduct}
+                  onChange={(e) => setEditMaterial({ ...editMaterial, isRetailProduct: e.target.checked })}
+                  className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                />
+                <div>
+                  <div className="font-medium text-gray-900">🏠 Produkt pro domácí použití</div>
+                  <div className="text-sm text-gray-600">Produkt je určen k prodeji klientům (cena se zadává při prodeji)</div>
+                </div>
+              </label>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditMaterialForm(false)
+                    setEditMaterial(null)
+                  }}
+                  className="flex-1 py-3 bg-white/80 text-gray-700 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200"
+                >
+                  Zrušit
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
+                >
+                  Uložit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Material Confirmation Modal */}
+      {showDeleteMaterialConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass rounded-2xl p-8 max-w-md w-full shadow-glow border border-red-100/50 m-4">
+            <h2 className="text-2xl font-bold text-red-600 mb-6">Smazat produkt?</h2>
+            <div className="mb-6">
+              <div className="p-4 bg-red-50 rounded-xl border border-red-100 mb-4">
+                <div className="font-medium text-gray-900">{showDeleteMaterialConfirm.name}</div>
+                {showDeleteMaterialConfirm._count && showDeleteMaterialConfirm._count.movements > 0 && (
+                  <div className="text-sm text-red-600 mt-2">
+                    ⚠️ Produkt má {showDeleteMaterialConfirm._count.movements} pohybů. Nejprve smažte všechny pohyby.
+                  </div>
+                )}
+              </div>
+              <p className="text-gray-700">
+                Opravdu chcete smazat tento produkt? Tato akce je nevratná.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteMaterialConfirm(null)}
+                className="flex-1 py-3 bg-white/80 text-gray-700 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200"
+              >
+                Zrušit
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteMaterial}
+                disabled={showDeleteMaterialConfirm._count && showDeleteMaterialConfirm._count.movements > 0}
+                className="flex-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                Smazat
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -426,10 +781,14 @@ function MaterialDetail({
   material,
   movements,
   onAddMovement,
+  onEdit,
+  onDelete,
 }: {
   material: Material & { movements?: MaterialMovement[] }
   movements: MaterialMovement[]
   onAddMovement: () => void
+  onEdit: () => void
+  onDelete: () => void
 }) {
   return (
     <div className="h-full flex flex-col">
@@ -441,12 +800,32 @@ function MaterialDetail({
             </h1>
             <p className="text-gray-600">{material.group.name}</p>
           </div>
-          <button
-            onClick={onAddMovement}
-            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
-          >
-            + Nový pohyb
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onEdit}
+              className="px-4 py-2 bg-white/80 text-purple-600 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              Upravit
+            </button>
+            <button
+              onClick={onDelete}
+              className="px-4 py-2 bg-white/80 text-red-600 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Smazat
+            </button>
+            <button
+              onClick={onAddMovement}
+              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
+            >
+              + Nový pohyb
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">

@@ -56,12 +56,61 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
+    const { name, groupId, unit, packageSize, isRetailProduct } = await request.json()
+    
+    const material = await prisma.material.update({
+      where: { id },
+      data: {
+        name,
+        groupId,
+        unit,
+        packageSize,
+        isRetailProduct,
+      },
+      include: {
+        group: true,
+      },
+    })
+    
+    return NextResponse.json(material)
+  } catch (error) {
+    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id} = await params
+    
+    // Check if material has movements
+    const material = await prisma.material.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { movements: true },
+        },
+      },
+    })
+    
+    if (!material) {
+      return NextResponse.json({ error: 'Material not found' }, { status: 404 })
+    }
+    
+    if (material._count.movements > 0) {
+      return NextResponse.json({ 
+        error: `Nelze smazat produkt s ${material._count.movements} pohyby. Nejprve smažte všechny pohyby.` 
+      }, { status: 400 })
+    }
+    
     await prisma.material.delete({
       where: { id },
     })
