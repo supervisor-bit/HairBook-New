@@ -235,6 +235,38 @@ async function main() {
   })
   console.log('✓ Sample clients created')
 
+  // Get first client for adding sample products
+  const firstClient = await prisma.client.findFirst()
+  
+  if (firstClient) {
+    await prisma.homeProduct.createMany({
+      data: [
+        {
+          clientId: firstClient.id,
+          productName: 'L\'Oréal Professionnel Šampon Serie Expert',
+          quantity: 250,
+          unit: 'ml',
+          note: 'Pro barvené vlasy',
+        },
+        {
+          clientId: firstClient.id,
+          productName: 'Kerastase Nutritive Maska',
+          quantity: 200,
+          unit: 'ml',
+          note: 'Použít 2x týdně',
+        },
+        {
+          clientId: firstClient.id,
+          productName: 'Olaplex No. 3',
+          quantity: 100,
+          unit: 'ml',
+          note: 'Aplikovat před mytím',
+        },
+      ],
+    })
+    console.log('✓ Sample home products created')
+  }
+
   console.log('\n🎉 Database seeded successfully!')
   console.log('\nLogin credentials:')
   console.log('Password: admin')

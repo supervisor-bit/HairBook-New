@@ -439,6 +439,14 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
   const [noteText, setNoteText] = useState('')
   const [showDeleteNoteConfirm, setShowDeleteNoteConfirm] = useState<any>(null)
   const [showDeleteVisitConfirm, setShowDeleteVisitConfirm] = useState<any>(null)
+  
+  // Products state
+  const [showProductForm, setShowProductForm] = useState(false)
+  const [productName, setProductName] = useState('')
+  const [productQuantity, setProductQuantity] = useState('')
+  const [productUnit, setProductUnit] = useState<'g' | 'ml' | 'ks'>('ks')
+  const [productNote, setProductNote] = useState('')
+  const [showDeleteProductConfirm, setShowDeleteProductConfirm] = useState<any>(null)
 
   const getAvatarColor = (name: string) => {
     const colors = [
@@ -496,6 +504,50 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
     setEditingNote(null)
     setNoteText('')
     setShowNoteForm(true)
+  }
+
+  // Product functions
+  const handleAddProduct = async () => {
+    if (!productName.trim() || !productQuantity) return
+    
+    const res = await fetch(`/api/clients/${client.id}/products`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        productName: productName.trim(),
+        quantity: parseFloat(productQuantity),
+        unit: productUnit,
+        note: productNote.trim() || null,
+      }),
+    })
+    
+    if (res.ok) {
+      setProductName('')
+      setProductQuantity('')
+      setProductUnit('ks')
+      setProductNote('')
+      setShowProductForm(false)
+      onReload()
+    }
+  }
+
+  const handleDeleteProduct = async (productId: string) => {
+    const res = await fetch(`/api/clients/${client.id}/products/${productId}`, {
+      method: 'DELETE',
+    })
+    
+    if (res.ok) {
+      setShowDeleteProductConfirm(null)
+      onReload()
+    }
+  }
+
+  const openProductForm = () => {
+    setProductName('')
+    setProductQuantity('')
+    setProductUnit('ks')
+    setProductNote('')
+    setShowProductForm(true)
   }
 
   const openEditNote = (note: any) => {
@@ -714,9 +766,56 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
         )}
 
         {activeTab === 'products' && (
-          <div className="text-center text-gray-400 py-12">
-            <div className="text-5xl mb-4">🏠</div>
-            <p>Zatím žádné produkty</p>
+          <div>
+            <div className="mb-4 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">Produkty pro domácí použití</h3>
+              <button
+                onClick={openProductForm}
+                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200 text-sm"
+              >
+                + Nový produkt
+              </button>
+            </div>
+
+            {client.homeProducts?.length > 0 ? (
+              <div className="space-y-3">
+                {client.homeProducts.map((product: any) => (
+                  <div key={product.id} className="glass rounded-lg p-4 shadow-soft border border-purple-100/30 hover:shadow-glow hover:scale-[1.01] transition-all duration-200">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                          <h4 className="font-semibold text-gray-900">{product.productName}</h4>
+                          <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">
+                            {product.quantity} {product.unit}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {new Date(product.createdAt).toLocaleDateString('cs-CZ', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                        </div>
+                        {product.note && (
+                          <p className="text-sm text-gray-600 mt-2">{product.note}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setShowDeleteProductConfirm(product)}
+                        className="text-red-600 hover:text-red-700 text-sm"
+                      >
+                        🗑️ Smazat
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-400 py-12">
+                <div className="text-5xl mb-4">🏠</div>
+                <p>Zatím žádné produkty</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -976,6 +1075,149 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                 </button>
                 <button
                   onClick={() => handleDeleteVisit(showDeleteVisitConfirm.id)}
+                  className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
+                >
+                  Smazat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Form Modal */}
+      {showProductForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowProductForm(false)}>
+          <div className="glass rounded-2xl max-w-2xl w-full shadow-glow border border-purple-100/50" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="p-6 border-b border-purple-100/50">
+              <h2 className="text-2xl font-bold text-gray-900">Nový produkt</h2>
+              <p className="text-gray-600 mt-1">
+                {new Date().toLocaleDateString('cs-CZ', { 
+                  day: 'numeric', 
+                  month: 'long', 
+                  year: 'numeric'
+                })}
+              </p>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Název produktu
+                </label>
+                <input
+                  type="text"
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  placeholder="např. Šampon, Kondicionér, Maska..."
+                  className="w-full px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  autoFocus
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Množství
+                  </label>
+                  <input
+                    type="number"
+                    value={productQuantity}
+                    onChange={(e) => setProductQuantity(e.target.value)}
+                    placeholder="0"
+                    className="w-full px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    step="0.01"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Jednotka
+                  </label>
+                  <div className="flex gap-2">
+                    {(['g', 'ml', 'ks'] as const).map((unit) => (
+                      <button
+                        key={unit}
+                        onClick={() => setProductUnit(unit)}
+                        className={`flex-1 px-4 py-3 rounded-lg border font-medium transition-colors ${
+                          productUnit === unit
+                            ? 'bg-purple-600 text-white border-purple-600'
+                            : 'bg-white text-gray-700 border-purple-200 hover:bg-purple-50'
+                        }`}
+                      >
+                        {unit}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Poznámka (volitelné)
+                </label>
+                <textarea
+                  value={productNote}
+                  onChange={(e) => setProductNote(e.target.value)}
+                  placeholder="Další informace o produktu..."
+                  className="w-full h-24 px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-purple-100/50 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowProductForm(false)
+                  setProductName('')
+                  setProductQuantity('')
+                  setProductUnit('ks')
+                  setProductNote('')
+                }}
+                className="flex-1 py-3 bg-white/80 text-gray-700 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200"
+              >
+                Zrušit
+              </button>
+              <button
+                onClick={handleAddProduct}
+                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!productName.trim() || !productQuantity || parseFloat(productQuantity) <= 0}
+              >
+                Přidat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Product Confirmation Modal */}
+      {showDeleteProductConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowDeleteProductConfirm(null)}>
+          <div className="glass rounded-2xl max-w-md w-full shadow-glow border border-purple-100/50" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <div className="text-6xl mb-4">⚠️</div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Smazat produkt?</h2>
+                <p className="text-gray-600 mb-2">
+                  <strong>{showDeleteProductConfirm.productName}</strong>
+                </p>
+                <p className="text-sm text-gray-500">
+                  Tato akce je nevratná.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteProductConfirm(null)}
+                  className="flex-1 py-3 bg-white/80 text-gray-700 rounded-lg font-medium hover:bg-white hover:shadow-soft transition-all duration-200"
+                >
+                  Zrušit
+                </button>
+                <button
+                  onClick={() => handleDeleteProduct(showDeleteProductConfirm.id)}
                   className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-medium hover:shadow-glow transition-all duration-200"
                 >
                   Smazat
