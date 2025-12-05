@@ -7,7 +7,7 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const { status } = await request.json()
+    const { status, deliveryItems } = await request.json()
     
     const updateData: {
       status: string
@@ -21,33 +21,36 @@ export async function PATCH(
     } else if (status === 'delivered') {
       updateData.deliveredAt = new Date()
       
-      // Add materials to stock when order is delivered
-      const order = await prisma.order.findUnique({
+      // Use deliveryItems if provided (with adjusted quantities and additional materials)
+      // Otherwise fall back to original order items
+      const itemsToProcess = deliveryItems || (await prisma.order.findUnique({
         where: { id },
         include: { items: true },
-      })
+      }))?.items.map(item => ({ materialId: item.materialId, quantity: item.quantity }))
       
-      if (order) {
-        for (const item of order.items) {
-          // Update material stock
-          await prisma.material.update({
-            where: { id: item.materialId },
-            data: {
-              stockQuantity: {
-                increment: item.quantity,
+      if (itemsToProcess) {
+        for (const item of itemsToProcess) {
+          if (item.quantity > 0) {
+            // Update material stock
+            await prisma.material.update({
+              where: { id: item.materialId },
+              data: {
+                stockQuantity: {
+                  increment: item.quantity,
+                },
               },
-            },
-          })
-          
-          // Create material movement
-          await prisma.materialMovement.create({
-            data: {
-              materialId: item.materialId,
-              type: 'in',
-              quantity: item.quantity,
-              note: `Objednávka doručena`,
-            },
-          })
+            })
+            
+            // Create material movement
+            await prisma.materialMovement.create({
+              data: {
+                materialId: item.materialId,
+                type: 'in',
+                quantity: item.quantity,
+                note: `Objednávka doručena`,
+              },
+            })
+          }
         }
       }
     }

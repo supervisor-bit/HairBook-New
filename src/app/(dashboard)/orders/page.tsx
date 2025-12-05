@@ -3,6 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+interface MaterialGroup {
+  id: string
+  name: string
+}
+
 interface Material {
   id: string
   name: string
@@ -11,6 +16,7 @@ interface Material {
   stockQuantity: number
   minStock: number
   group: {
+    id: string
     name: string
   }
 }
@@ -46,10 +52,22 @@ export default function OrdersPage() {
   const [orderToDeliver, setOrderToDeliver] = useState<Order | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [deliverSearchQuery, setDeliverSearchQuery] = useState('')
+  const [deliveryQuantities, setDeliveryQuantities] = useState<Map<string, number>>(new Map())
+  const [additionalMaterials, setAdditionalMaterials] = useState<Map<string, number>>(new Map())
+  const [materialGroups, setMaterialGroups] = useState<MaterialGroup[]>([])
+  const [showNewMaterialForm, setShowNewMaterialForm] = useState(false)
+  const [newMaterial, setNewMaterial] = useState({
+    name: '',
+    groupId: '',
+    unit: 'ks' as 'g' | 'ml' | 'ks',
+    packageSize: 1,
+    quantity: 1
+  })
 
   useEffect(() => {
     loadOrders()
     loadMaterials()
+    loadMaterialGroups()
   }, [])
 
   const loadOrders = async () => {
@@ -62,6 +80,12 @@ export default function OrdersPage() {
     const res = await fetch('/api/materials')
     const data = await res.json()
     setMaterials(data)
+  }
+
+  const loadMaterialGroups = async () => {
+    const res = await fetch('/api/material-groups')
+    const data = await res.json()
+    setMaterialGroups(data)
   }
 
   // Get materials that need restocking (below minimum)
@@ -163,13 +187,62 @@ export default function OrdersPage() {
     }
   }
 
+  const handleCreateNewMaterial = async () => {
+    if (!newMaterial.name || !newMaterial.groupId) return
+
+    const res = await fetch('/api/materials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newMaterial.name,
+        groupId: newMaterial.groupId,
+        unit: newMaterial.unit,
+        packageSize: newMaterial.packageSize,
+        stockQuantity: 0,
+        minStock: 0,
+      }),
+    })
+
+    if (res.ok) {
+      const createdMaterial = await res.json()
+      await loadMaterials()
+      
+      // Add the new material to additional materials list
+      const newMap = new Map(additionalMaterials)
+      newMap.set(createdMaterial.id, newMaterial.quantity)
+      setAdditionalMaterials(newMap)
+      
+      // Reset form
+      setShowNewMaterialForm(false)
+      setNewMaterial({
+        name: '',
+        groupId: '',
+        unit: 'ks',
+        packageSize: 1,
+        quantity: 1
+      })
+      setDeliverSearchQuery('')
+    }
+  }
+
   const confirmDelivery = async () => {
     if (!orderToDeliver) return
+
+    // Prepare items with adjusted quantities
+    const items = orderToDeliver.items.map(item => ({
+      materialId: item.material.id,
+      quantity: deliveryQuantities.get(item.material.id) || item.quantity
+    }))
+
+    // Add additional materials
+    additionalMaterials.forEach((quantity, materialId) => {
+      items.push({ materialId, quantity })
+    })
 
     const res = await fetch(`/api/orders/${orderToDeliver.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'delivered' }),
+      body: JSON.stringify({ status: 'delivered', deliveryItems: items }),
     })
 
     if (res.ok) {
@@ -177,6 +250,17 @@ export default function OrdersPage() {
       loadMaterials()
       setShowDeliverModal(false)
       setOrderToDeliver(null)
+      setDeliveryQuantities(new Map())
+      setAdditionalMaterials(new Map())
+      setDeliverSearchQuery('')
+      setShowNewMaterialForm(false)
+      setNewMaterial({
+        name: '',
+        groupId: '',
+        unit: 'ks',
+        packageSize: 1,
+        quantity: 1
+      })
     }
   }
 
@@ -515,52 +599,356 @@ export default function OrdersPage() {
 
       {/* Deliver Confirmation Modal */}
       {showDeliverModal && orderToDeliver && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full my-8">
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Označit jako doručeno</h2>
-              <p className="text-gray-600 mb-4">
-                Objednávka bude označena jako doručená a následující produkty budou přidány do skladu:
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full flex flex-col my-8 max-h-[90vh]">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                {showNewMaterialForm ? 'Vytvořit nový materiál' : 'Doručení objednávky'}
+              </h2>
+              <p className="text-sm text-gray-600">
+                {showNewMaterialForm 
+                  ? 'Vyplňte údaje o novém materiálu z dodacího listu'
+                  : 'Upravte množství a přidejte další položky z dodacího listu:'
+                }
               </p>
-              {orderToDeliver.items.length > 5 && (
-                <input
-                  type="text"
-                  value={deliverSearchQuery}
-                  onChange={(e) => setDeliverSearchQuery(e.target.value)}
-                  placeholder="Hledat produkt..."
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
-                />
-              )}
             </div>
-            <div className="max-h-64 overflow-y-auto px-6">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="space-y-2">
-                  {filteredDeliverItems.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-gray-700">{item.material.name}</span>
-                      <span className="font-medium text-gray-900">+{item.quantity} ks</span>
-                    </div>
-                  ))}
+            
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6">
+                {!showNewMaterialForm ? (
+                  <>
+                    {/* Ordered items with editable quantities */}
+                    <div className="mb-6">
+                  <h3 className="font-semibold text-gray-900 mb-3">Objednané položky</h3>
+                  <div className="space-y-2">
+                    {orderToDeliver.items.map((item) => {
+                      const quantity = deliveryQuantities.get(item.material.id) || item.quantity
+                      return (
+                        <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{item.material.name}</div>
+                            <div className="text-sm text-gray-600">{item.material.group.name}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Objednáno: {item.quantity} {item.material.unit} • Sklad: {item.material.stockQuantity} {item.material.unit}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                const newQty = Math.max(0, quantity - 1)
+                                const newMap = new Map(deliveryQuantities)
+                                newMap.set(item.material.id, newQty)
+                                setDeliveryQuantities(newMap)
+                              }}
+                              className="w-8 h-8 rounded-lg bg-white border border-gray-300 hover:bg-gray-100 flex items-center justify-center"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              value={quantity}
+                              onChange={(e) => {
+                                const newQty = Math.max(0, parseInt(e.target.value) || 0)
+                                const newMap = new Map(deliveryQuantities)
+                                newMap.set(item.material.id, newQty)
+                                setDeliveryQuantities(newMap)
+                              }}
+                              className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center font-medium"
+                            />
+                            <span className="text-sm text-gray-600">{item.material.unit}</span>
+                            <button
+                              onClick={() => {
+                                const newMap = new Map(deliveryQuantities)
+                                newMap.set(item.material.id, quantity + 1)
+                                setDeliveryQuantities(newMap)
+                              }}
+                              className="w-8 h-8 rounded-lg bg-white border border-gray-300 hover:bg-gray-100 flex items-center justify-center"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
+
+                {/* Additional materials list - always visible if there are any */}
+                {additionalMaterials.size > 0 && (
+                  <div className="mb-6">
+                    <h3 className="font-semibold text-gray-900 mb-3">Další položky z dodacího listu</h3>
+                    <div className="space-y-2 mb-4">
+                      {Array.from(additionalMaterials.entries()).map(([materialId, quantity]) => {
+                        const material = materials.find(m => m.id === materialId)
+                        if (!material) return null
+                        return (
+                          <div key={materialId} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{material.name}</div>
+                              <div className="text-sm text-gray-600">{material.group.name}</div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Aktuální sklad: {material.stockQuantity} {material.unit}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  const newQty = Math.max(1, quantity - 1)
+                                  const newMap = new Map(additionalMaterials)
+                                  newMap.set(materialId, newQty)
+                                  setAdditionalMaterials(newMap)
+                                }}
+                                className="w-8 h-8 rounded-lg bg-white border border-gray-300 hover:bg-gray-100 flex items-center justify-center"
+                              >
+                                −
+                              </button>
+                              <input
+                                type="number"
+                                value={quantity}
+                                onChange={(e) => {
+                                  const newQty = Math.max(1, parseInt(e.target.value) || 1)
+                                  const newMap = new Map(additionalMaterials)
+                                  newMap.set(materialId, newQty)
+                                  setAdditionalMaterials(newMap)
+                                }}
+                                className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center font-medium"
+                              />
+                              <span className="text-sm text-gray-600">{material.unit}</span>
+                              <button
+                                onClick={() => {
+                                  const newMap = new Map(additionalMaterials)
+                                  newMap.set(materialId, quantity + 1)
+                                  setAdditionalMaterials(newMap)
+                                }}
+                                className="w-8 h-8 rounded-lg bg-white border border-gray-300 hover:bg-gray-100 flex items-center justify-center"
+                              >
+                                +
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const newMap = new Map(additionalMaterials)
+                                  newMap.delete(materialId)
+                                  setAdditionalMaterials(newMap)
+                                }}
+                                className="ml-2 w-8 h-8 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add more materials section */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-3">
+                    {additionalMaterials.size > 0 ? 'Přidat další materiály' : 'Další položky z dodacího listu'}
+                  </h3>
+                  
+                  {/* Search materials */}
+                  <div>
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Vyhledat materiál..."
+                          value={deliverSearchQuery}
+                          onChange={(e) => setDeliverSearchQuery(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                        <button
+                          onClick={() => setShowNewMaterialForm(true)}
+                          className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all whitespace-nowrap font-medium"
+                        >
+                          + Vytvořit nový
+                        </button>
+                      </div>
+                      
+                      {deliverSearchQuery && (
+                        <div className="border border-gray-200 rounded-lg">
+                          {materials
+                            .filter(m => 
+                              !orderToDeliver.items.some(item => item.material.id === m.id) &&
+                              !additionalMaterials.has(m.id) &&
+                              (m.name.toLowerCase().includes(deliverSearchQuery.toLowerCase()) ||
+                               m.group.name.toLowerCase().includes(deliverSearchQuery.toLowerCase()))
+                            ).length > 0 ? (
+                            materials
+                              .filter(m => 
+                                !orderToDeliver.items.some(item => item.material.id === m.id) &&
+                                !additionalMaterials.has(m.id) &&
+                                (m.name.toLowerCase().includes(deliverSearchQuery.toLowerCase()) ||
+                                 m.group.name.toLowerCase().includes(deliverSearchQuery.toLowerCase()))
+                              )
+                              .map(material => (
+                                <button
+                                  key={material.id}
+                                  onClick={() => {
+                                    const newMap = new Map(additionalMaterials)
+                                    newMap.set(material.id, 1)
+                                    setAdditionalMaterials(newMap)
+                                    setDeliverSearchQuery('')
+                                  }}
+                                  className="w-full px-4 py-3 text-left hover:bg-purple-50 border-b border-gray-100 last:border-b-0"
+                                >
+                                  <div className="font-medium text-gray-900">{material.name}</div>
+                                  <div className="text-sm text-gray-600">{material.group.name} • Sklad: {material.stockQuantity} {material.unit}</div>
+                                </button>
+                              ))
+                          ) : (
+                            <div className="p-4 text-center text-gray-500 text-sm">
+                              Žádný materiál nenalezen
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                  </>
+                ) : (
+                  <div className="space-y-4">
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Název materiálu
+                          </label>
+                          <input
+                            type="text"
+                            value={newMaterial.name}
+                            onChange={(e) => setNewMaterial(prev => ({ ...prev, name: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="např. Loreal Professionnel Inforcer"
+                            autoFocus
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Skupina
+                          </label>
+                          <select
+                            value={newMaterial.groupId}
+                            onChange={(e) => setNewMaterial(prev => ({ ...prev, groupId: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          >
+                            <option value="">Vyberte skupinu materiálu</option>
+                            {materialGroups.map(group => (
+                              <option key={group.id} value={group.id}>{group.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Jednotka
+                            </label>
+                            <select
+                              value={newMaterial.unit}
+                              onChange={(e) => setNewMaterial(prev => ({ ...prev, unit: e.target.value as 'g' | 'ml' | 'ks' }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            >
+                              <option value="ks">ks (kusy)</option>
+                              <option value="ml">ml (mililitry)</option>
+                              <option value="g">g (gramy)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Velikost balení
+                            </label>
+                            <input
+                              type="number"
+                              value={newMaterial.packageSize}
+                              onChange={(e) => setNewMaterial(prev => ({ ...prev, packageSize: parseInt(e.target.value) || 1 }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              min="1"
+                              placeholder="1000"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Množství k dodání
+                          </label>
+                          <input
+                            type="number"
+                            value={newMaterial.quantity}
+                            onChange={(e) => setNewMaterial(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            min="1"
+                            placeholder="Počet balení"
+                          />
+                        </div>
+                        
+                      </div>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="p-6 flex gap-3">
-              <button
-                onClick={() => {
-                  setShowDeliverModal(false)
-                  setOrderToDeliver(null)
-                  setDeliverSearchQuery('')
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Zrušit
-              </button>
-              <button
-                onClick={confirmDelivery}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                Potvrdit doručení
-              </button>
+            
+            <div className="p-6 border-t border-gray-200 flex gap-3">
+              {showNewMaterialForm ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setShowNewMaterialForm(false)
+                      setNewMaterial({
+                        name: '',
+                        groupId: '',
+                        unit: 'ks',
+                        packageSize: 1,
+                        quantity: 1
+                      })
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    ← Zpět na seznam
+                  </button>
+                  <button
+                    onClick={handleCreateNewMaterial}
+                    disabled={!newMaterial.name || !newMaterial.groupId}
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Vytvořit a přidat
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      setShowDeliverModal(false)
+                      setOrderToDeliver(null)
+                      setDeliverSearchQuery('')
+                      setDeliveryQuantities(new Map())
+                      setAdditionalMaterials(new Map())
+                      setShowNewMaterialForm(false)
+                      setNewMaterial({
+                        name: '',
+                        groupId: '',
+                        unit: 'ks',
+                        packageSize: 1,
+                        quantity: 1
+                      })
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Zrušit
+                  </button>
+                  <button
+                    onClick={confirmDelivery}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Potvrdit doručení
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
