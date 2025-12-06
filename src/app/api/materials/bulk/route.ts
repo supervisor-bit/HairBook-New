@@ -21,15 +21,16 @@ export async function POST(request: Request) {
     // Vytvoření materiálů
     if (materials && materials.length > 0) {
       await Promise.all(
-        materials.map((material: { name: string; groupId: string; unit: string; stock: number; price: number; minStock: number }) =>
+        materials.map((material: { name: string; groupId: string; unit: string; packageSize: number; stockQuantity: number; minStock: number; isRetailProduct: boolean }) =>
           prisma.material.create({
             data: {
               name: material.name,
               groupId: material.groupId,
               unit: material.unit,
-              stock: material.stock,
-              price: material.price,
+              packageSize: material.packageSize,
+              stockQuantity: material.stockQuantity,
               minStock: material.minStock,
+              isRetailProduct: material.isRetailProduct,
             },
           })
         )

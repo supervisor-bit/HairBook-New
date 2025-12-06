@@ -55,7 +55,7 @@ export default function OnboardingPage() {
 
   const updateMaterial = (index: number, field: keyof Material, value: any) => {
     const newMaterials = [...materials]
-    newMaterials[index][field] = value
+    ;(newMaterials[index] as any)[field] = value
     setMaterials(newMaterials)
   }
 

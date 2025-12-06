@@ -3,13 +3,14 @@ import { prisma } from '@/lib/prisma'
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const { name } = await request.json()
     
     const group = await prisma.clientGroup.update({
-      where: { id: params.id },
+      where: { id },
       data: { name },
     })
     
@@ -21,12 +22,13 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     // Check if group is system group
     const group = await prisma.clientGroup.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: { clients: true },
@@ -47,7 +49,7 @@ export async function DELETE(
     }
     
     await prisma.clientGroup.delete({
-      where: { id: params.id },
+      where: { id },
     })
     
     return NextResponse.json({ success: true })
