@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 
 const menuItems = [
   { icon: '🏠', label: 'Dashboard', href: '/dashboard' },
@@ -19,10 +20,48 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
+  const [hasMaterials, setHasMaterials] = useState<boolean | null>(null)
+  const isOnboarding = pathname === '/onboarding'
+
+  useEffect(() => {
+    const checkMaterials = async () => {
+      try {
+        const res = await fetch('/api/materials/check')
+        const data = await res.json()
+        setHasMaterials(data.hasMaterials)
+        
+        // Pokud nejsou materiály a nejsme na onboarding stránce, přesměruj
+        if (!data.hasMaterials && !isOnboarding) {
+          router.push('/onboarding')
+        }
+      } catch (error) {
+        console.error('Error checking materials:', error)
+      }
+    }
+    
+    checkMaterials()
+  }, [pathname, router, isOnboarding])
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/login')
+  }
+
+  // Pokud jsme na onboarding stránce, nezobrazuj sidebar
+  if (isOnboarding) {
+    return <>{children}</>
+  }
+
+  // Loading state - zobrazit prázdnou obrazovku během kontroly
+  if (hasMaterials === null) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-bounce">✂️</div>
+          <p className="text-gray-600">Načítání...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

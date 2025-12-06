@@ -18,6 +18,19 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
+// Salon Settings
+model SalonSettings {
+  id        String   @id @default(cuid())
+  name      String?
+  address   String?
+  phone     String?
+  email     String?
+  ico       String?
+  dic       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // Client Groups
 model ClientGroup {
   id        String   @id @default(cuid())
