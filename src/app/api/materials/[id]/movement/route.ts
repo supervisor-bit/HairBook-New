@@ -9,22 +9,26 @@ export async function POST(
     const { id } = await params
     const { quantity, type, note } = await request.json()
     
+    // Determine if this is an increment or decrement
+    const isIncrement = type === 'DELIVERY' || type === 'PURCHASE'
+    const parsedQuantity = parseFloat(quantity)
+    
     // Update stock
     await prisma.material.update({
       where: { id },
       data: {
         stockQuantity: {
-          [type === 'in' ? 'increment' : 'decrement']: parseFloat(quantity),
+          [isIncrement ? 'increment' : 'decrement']: parsedQuantity,
         },
       },
     })
     
-    // Create movement
+    // Create movement (store negative quantity for decrements)
     const movement = await prisma.materialMovement.create({
       data: {
         materialId: id,
         type,
-        quantity: parseFloat(quantity),
+        quantity: isIncrement ? parsedQuantity : -parsedQuantity,
         note,
       },
     })

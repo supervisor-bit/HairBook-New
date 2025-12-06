@@ -71,7 +71,7 @@ export default function MaterialsPage() {
     isRetailProduct: false,
   })
   const [newMovement, setNewMovement] = useState({
-    type: 'in',
+    type: 'DELIVERY',
     quantity: '',
     note: '',
   })
@@ -248,7 +248,7 @@ export default function MaterialsPage() {
     })
 
     if (res.ok) {
-      setNewMovement({ type: 'in', quantity: '', note: '' })
+      setNewMovement({ type: 'DELIVERY', quantity: '', note: '' })
       setShowMovementForm(false)
       
       // Reload material detail to get updated stock and movements
@@ -790,8 +790,9 @@ export default function MaterialsPage() {
                 onChange={(e) => setNewMovement({ ...newMovement, type: e.target.value })}
                 className="w-full px-4 py-3 bg-white/60 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
               >
-                <option value="in">Příjem</option>
-                <option value="out">Výdej</option>
+                <option value="DELIVERY">📦 Objednávka doručena</option>
+                <option value="PURCHASE">🛒 Nákup</option>
+                <option value="USAGE">🔧 Výdej pro práci</option>
               </select>
               <input
                 type="number"
@@ -976,15 +977,19 @@ function MaterialDetail({
                         ? 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700'
                         : 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700'
                     }`}>
-                      {movement.type === 'DELIVERY' || movement.type === 'PURCHASE'
-                        ? '📦 Příjem'
+                      {movement.type === 'DELIVERY'
+                        ? '📦 Objednávka doručena'
+                        : movement.type === 'PURCHASE'
+                        ? '🛒 Nákup'
                         : movement.type === 'SALE'
                         ? movement.client
                           ? '🛍️ Prodej'
                           : '🛒 Prodej (anonymní)'
                         : movement.type === 'USAGE'
                         ? '🔧 Výdej pro práci'
-                        : '🏥 Návštěva'
+                        : movement.type === 'VISIT'
+                        ? '💇 Spotřeba při návštěvě'
+                        : movement.type
                       }
                     </span>
                     <span className="font-semibold text-gray-900">

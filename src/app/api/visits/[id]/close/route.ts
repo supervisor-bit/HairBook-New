@@ -69,7 +69,7 @@ export async function POST(
         await prisma.materialMovement.create({
           data: {
             materialId: material.id,
-            type: 'visit',
+            type: 'VISIT',
             quantity: packagesToDeduct,
             visitId: visit.id,
             note: `Použito v návštěvě`,

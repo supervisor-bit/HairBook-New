@@ -887,10 +887,17 @@ function ClientDetail({ client, onEdit, onDelete, onReload }: { client: any, onE
                   {(() => {
                     const grouped = (client.homeProducts || []).reduce((acc: any, p: any) => {
                       const key = p.purchaseId || p.id
-                      if (!acc[key]) acc[key] = p
+                      if (!acc[key]) {
+                        acc[key] = []
+                      }
+                      acc[key].push(p)
                       return acc
                     }, {})
-                    return Object.values(grouped).reduce((sum: number, p: any) => sum + (p.totalPrice || 0), 0).toLocaleString('cs-CZ')
+                    return Object.values(grouped).reduce((sum: number, products: any) => {
+                      // Find product with totalPrice in this group
+                      const productWithPrice = products.find((p: any) => p.totalPrice)
+                      return sum + (productWithPrice?.totalPrice || 0)
+                    }, 0).toLocaleString('cs-CZ')
                   })()} Kč
                 </div>
               </div>

@@ -45,7 +45,7 @@ export async function PATCH(
             await prisma.materialMovement.create({
               data: {
                 materialId: item.materialId,
-                type: 'in',
+                type: 'DELIVERY',
                 quantity: item.quantity,
                 note: `Objednávka doručena`,
               },
